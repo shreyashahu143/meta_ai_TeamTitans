@@ -1,0 +1,83 @@
+name: meta_ai_teamtitans
+description: "Email triage RL environment exposing action cost asymmetry and sender relationship decay as blind spots"
+version: 1.0.0
+
+authors:
+  - Team Titans
+
+tags:
+  - reinforcement-learning
+  - email-management
+  - openenv
+  - nlp
+  - productivity
+
+observation_space:
+  type: object
+  description: "Agent sees one email at a time with partial information"
+  properties:
+    email_id:
+      type: integer
+      description: "Unique email identifier"
+    sender:
+      type: string
+      description: "Email address of sender"
+    subject:
+      type: string
+      description: "Email subject line"
+    body:
+      type: string
+      description: "Full email body text"
+    sender_importance:
+      type: string
+      enum: ["VIP", "Normal", "Spam"]
+      description: "Sender tier (visible to agent)"
+    email_length:
+      type: integer
+      description: "Character count (proxy for time cost — agent does NOT see actual time)"
+    relationship_score:
+      type: number
+      minimum: 0
+      maximum: 100
+      description: "Current relationship health with this sender"
+    time_budget_remaining:
+      type: integer
+      description: "Minutes left in workday"
+    emails_remaining:
+      type: integer
+      description: "How many emails are left to process"
+
+action_space:
+  type: integer
+  minimum: 0
+  maximum: 1
+  description: "0 = ignore email, 1 = respond to email"
+
+reward_range:
+  min: -100
+  max: 100
+  description: "Reward calculated from email value, time cost, and relationship impact"
+
+tasks:
+  - id: task_1_easy
+    name: "Basic Prioritization"
+    description: "20 emails, full time budget, basic value-maximization scoring"
+    difficulty: easy
+    
+  - id: task_2_medium
+    name: "VIP Relationship Tracking"
+    description: "25 emails with followup chains, tests relationship decay blind spot"
+    difficulty: medium
+    
+  - id: task_3_hard
+    name: "Full Multi-Objective Optimization"
+    description: "30 emails, time pressure, balances efficiency + relationship health + priority accuracy"
+    difficulty: hard
+
+server:
+  port: 7860
+  endpoints:
+    - /health
+    - /reset
+    - /step
+    - /state

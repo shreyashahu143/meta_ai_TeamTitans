@@ -64,7 +64,7 @@ server/environment.py  (core RL logic)
 ## 📁 Full File Structure
 
 ```
-email_triage_env/
+meta_ai_TeamTitans/
 │
 ├── models.py                  ← Data contracts (Email, State, Observation, Action)
 ├── client.py                  ← HTTP client (connects inference.py to server)
@@ -72,12 +72,14 @@ email_triage_env/
 ├── grader.py                  ← Scoring logic for tasks 1, 2, 3
 ├── requirements.txt           ← Python dependencies
 ├── openenv.yaml               ← OpenEnv framework config (for HF Spaces)
+├── Dockerfile                 ← Container: Python 3.11, port 7860
 ├── README.md                  ← This file
+
 │
 ├── server/
 │   ├── environment.py         ← Core RL logic: reset(), step(), state()
 │   ├── app.py                 ← FastAPI wrapper (exposes /reset, /step, /state)
-│   └── Dockerfile             ← Container: Python 3.11, port 8000
+│   └── 
 │
 ├── data/
 │   └── email_bank.json        ← Pre-written email templates (VIP/Normal/Spam)
@@ -268,16 +270,16 @@ python inference.py --task 1
 
 ```bash
 # Check server is running
-curl http://localhost:8000/health
+curl http://localhost:7860/health
 
 # Reset the environment
-curl -X POST http://localhost:8000/reset
+curl -X POST http://localhost:7860/reset
 
 # Take an action (0=ignore, 1=respond)
-curl -X POST http://localhost:8000/step -H "Content-Type: application/json" -d '{"action": 1}'
+curl -X POST http://localhost:7860/step -H "Content-Type: application/json" -d '{"action": 1}'
 
 # Get current state
-curl http://localhost:8000/state
+curl http://localhost:7860/state
 ```
 
 ---

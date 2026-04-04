@@ -19,8 +19,8 @@ CONNECTS TO:
     ← models.py          (EmailObservation, State, StepResponse types)
 
 HOW IT WORKS:
-    inference.py calls:  client.step_env(action=1)
-    client.py does:      POST http://localhost:8000/step {"action": 1}
+    inference.py calls:  client.step_env(action=1`)
+    client.py does:      POST http://localhost:7860/step {"action": 1}
     server returns:      {"observation": {...}, "reward": 4.2, "done": false, "info": {...}}
     client.py returns:   StepResponse(observation=EmailObservation(...), reward=4.2, ...)
 
@@ -34,7 +34,7 @@ from typing import Optional
 from models import EmailObservation, State, StepResponse
 
 # Server URL — override via ENV_SERVER_URL environment variable
-SERVER_URL = os.getenv("ENV_SERVER_URL", "http://localhost:8000")
+SERVER_URL = os.getenv("ENV_SERVER_URL", "http://localhost:7860")
 
 
 # ---------------------------------------------------------------------------

@@ -24,7 +24,7 @@ HOW TO USE:
 
 from __future__ import annotations
 
-from enum import IntEnum
+from enum import IntEnum , Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 # 1. ENUMS
 # ---------------------------------------------------------------------------
 
-class SenderImportance(str):
+class SenderImportance(str ,Enum):
     """
     The "tier" of a sender. Controls relationship decay rates and reward weights.
 
@@ -56,6 +56,10 @@ class Action(IntEnum):
     """
     IGNORE = 0
     RESPOND = 1
+
+    # CHANGE TO:
+    # Action type is just int (0 or 1)
+    # No need for Enum — OpenEnv expects raw int
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +109,11 @@ class Email(BaseModel):
     is_followup: bool = Field(
         default=False,
         description="True if generated because a previous email from this sender was ignored"
+    )
+    #added by shreya [i'll write sss to  indicate this chnage is made by me ]
+    parent_email_id: Optional[int] = Field(
+        default=None,
+        description="If this is a followup, the email_id of the original email"
     )
 
 

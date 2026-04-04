@@ -1,0 +1,22 @@
+# Email Triage RL Environment - Python 3.11 Compatible
+# ====================================================
+
+# FastAPI server (v1 - avoids Rust dependency)
+fastapi==0.88.0
+uvicorn[standard]==0.20.0
+
+# Data validation (Pydantic v1 - no Rust needed)
+pydantic==1.10.13
+
+# HTTP client
+requests==2.31.0
+
+# LLM integration
+anthropic==0.25.0
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Testing (optional - remove if not testing)
+pytest==8.2.0
+httpx==0.27.0

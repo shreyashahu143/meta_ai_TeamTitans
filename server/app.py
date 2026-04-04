@@ -37,7 +37,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from environment import EmailTriageEnv
+from server.environment import EmailTriageEnv
 from models import StepResponse
 
 # ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ def reset(task_config: TaskConfig = None):
         env = EmailTriageEnv()
 
     observation = env.reset()
-    return observation.model_dump()
+    return observation.dict()
 
 
 @app.post("/step")
@@ -143,7 +143,7 @@ def step(request: StepRequest):
         raise HTTPException(status_code=400, detail="Action must be 0 (ignore) or 1 (respond)")
 
     response = env.step(request.action)
-    return response.model_dump()
+    return response.dict()
 
 
 @app.get("/state")
@@ -161,4 +161,4 @@ def get_state():
         curl http://localhost:8000/state
     """
     state = env.state()
-    return state.model_dump()
+    return state.dict()
