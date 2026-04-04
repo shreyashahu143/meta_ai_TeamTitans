@@ -105,18 +105,18 @@ meta_ai_TeamTitans/
 > ```powershell
 > py -0
 > ```
-> You need **3.12** or **3.9** (3.12 preferred). If you don't have either, download from python.org.
+> You need (3.11 preferred). If you don't have either, download from python.org.
 
 ### Step 1: Create the virtual environment
 
 ```powershell
 # Windows (PowerShell) — use py launcher to pick the right version
-py -3.12 -m venv venv
+py -3.11 -m venv venv
 ```
 
 ```bash
 # macOS/Linux
-python3.12 -m venv venv
+python3.11 -m venv venv
 ```
 
 ### Step 2: Activate it
@@ -144,12 +144,12 @@ venv\Scripts\activate.bat
 ### Step 3: Copy and fill in your .env file
 
 ```powershell
-copy .env.example .env
+copy .env
 ```
 
 ```bash
 # macOS/Linux
-cp .env.example .env
+cp .env
 ```
 
 Then open `.env` and paste in your `ANTHROPIC_API_KEY`.
@@ -163,7 +163,7 @@ pip install -r requirements.txt
 ### Step 5: Verify
 
 ```powershell
-python --version   # Should show Python 3.12.x
+python --version   # Should show Python 3.11.x
 pip list           # Should show fastapi, pydantic, anthropic, etc.
 ```
 
@@ -245,7 +245,7 @@ git push
 # Terminal 1 — Start the server
 source venv/bin/activate
 cd server/
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 
 # Terminal 2 — Run the agent
 source venv/bin/activate
@@ -260,7 +260,7 @@ cd server/
 docker build -t email-triage-env .
 
 # Run the container
-docker run -p 8000:8000 email-triage-env
+docker run -p 7860:7860 email-triage-env
 
 # In another terminal, run the agent
 python inference.py --task 1
@@ -394,7 +394,7 @@ Create a `.env` file in the project root (never commit this):
 
 ```env
 ANTHROPIC_API_KEY=your_key_here
-ENV_SERVER_URL=http://localhost:8000
+ENV_SERVER_URL=http://localhost:7860
 TASK_ID=1
 ```
 
