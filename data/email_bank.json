@@ -1,0 +1,217 @@
+{
+  "_note": "Pre-written email templates. Add more to grow diversity. reset() samples from these.",
+  "vip_emails": [
+    {
+      "sender": "director@company.com",
+      "sender_domain": "internal",
+      "subject": "Q4 Budget Review — Need Your Sign-off",
+      "body": "Hi, I need your approval on the Q4 budget allocation before the board meeting Friday. The doc is attached. Please review the headcount section especially — we're over by 12%. This blocks the entire planning process.",
+      "sender_importance": "VIP",
+      "base_priority": 9,
+      "estimated_response_time": 45
+    },
+    {
+      "sender": "cto@company.com",
+      "sender_domain": "internal",
+      "subject": "Architecture Decision: Microservices Migration",
+      "body": "Team, we need a final call on the microservices migration plan. I've read both proposals and need your input by EOD. Engineering is blocked on sprint planning until this is decided. Please review the attached comparison doc and share your recommendation.",
+      "sender_importance": "VIP",
+      "base_priority": 10,
+      "estimated_response_time": 60
+    },
+    {
+      "sender": "boss@company.com",
+      "sender_domain": "internal",
+      "subject": "Lunch tomorrow?",
+      "body": "Hey, are you free for lunch tomorrow around 1pm? Thinking Thai place near the office. Just a casual catch-up, nothing urgent.",
+      "sender_importance": "VIP",
+      "base_priority": 3,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "vpclient@bigcorp.com",
+      "sender_domain": "vip-domain",
+      "subject": "Contract Renewal — Urgent Decision Needed",
+      "body": "Following up on our contract renewal discussion. Our legal team needs a response by Thursday or we will need to pause the engagement and evaluate alternatives. Please confirm the terms we discussed in last week's call.",
+      "sender_importance": "VIP",
+      "base_priority": 10,
+      "estimated_response_time": 30
+    },
+    {
+      "sender": "founder@company.com",
+      "sender_domain": "internal",
+      "subject": "All-hands prep — slides due by 5pm",
+      "body": "Please send me your team's slides for tomorrow's all-hands by 5pm today. We need to review everything before the presentation. Keep it to 3 slides max.",
+      "sender_importance": "VIP",
+      "base_priority": 8,
+      "estimated_response_time": 20
+    },
+    {
+      "sender": "legal@company.com",
+      "sender_domain": "internal",
+      "subject": "Compliance Filing — 48 Hour Deadline",
+      "body": "This is a compliance reminder. The regulatory filing requires your department sign-off within 48 hours. Missing this deadline carries a financial penalty. Please review Section 4 of the attached document and confirm.",
+      "sender_importance": "VIP",
+      "base_priority": 10,
+      "estimated_response_time": 40
+    },
+    {
+      "sender": "cto@company.com",
+      "sender_domain": "internal",
+      "subject": "50-page Infrastructure Audit Report",
+      "body": "Please find attached the full infrastructure audit report (52 pages). I need a comprehensive written response covering: security gaps identified in Section 3, your proposed remediation timeline for all 14 findings, and cost estimates. This is the big one — please be thorough.",
+      "sender_importance": "VIP",
+      "base_priority": 7,
+      "estimated_response_time": 120
+    },
+    {
+      "sender": "director@company.com",
+      "sender_domain": "internal",
+      "subject": "FOLLOW UP: Q4 Budget Review",
+      "body": "I haven't heard back on my earlier email about the Q4 budget sign-off. This is blocking the entire planning process. Please respond ASAP — we're already delayed and the board is asking questions.",
+      "sender_importance": "VIP",
+      "base_priority": 10,
+      "estimated_response_time": 30,
+      "is_followup": true
+    }
+  ],
+  "normal_emails": [
+    {
+      "sender": "dev.teammate@company.com",
+      "sender_domain": "internal",
+      "subject": "PR Review Request — Small Fix",
+      "body": "Hey, could you review my pull request when you get a moment? It's a small bug fix in the auth module — about 50 lines changed. No rush, just whenever you have 10 minutes.",
+      "sender_importance": "Normal",
+      "base_priority": 5,
+      "estimated_response_time": 15
+    },
+    {
+      "sender": "pm@company.com",
+      "sender_domain": "internal",
+      "subject": "Sprint Planning Input Needed",
+      "body": "Hi, can you review the sprint backlog and add your team's capacity estimates for next sprint? The planning doc is linked below. We need this by tomorrow for the sprint planning meeting.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
+      "estimated_response_time": 20
+    },
+    {
+      "sender": "designer@company.com",
+      "sender_domain": "internal",
+      "subject": "Design Review — New Onboarding Flow",
+      "body": "Sharing the updated onboarding flow designs for your feedback. Focus especially on the mobile screens — we made significant changes based on the user research. Loom video walkthrough is attached (8 min).",
+      "sender_importance": "Normal",
+      "base_priority": 5,
+      "estimated_response_time": 25
+    },
+    {
+      "sender": "hr@company.com",
+      "sender_domain": "internal",
+      "subject": "Annual Review — Self-Assessment Due",
+      "body": "Reminder: your self-assessment for the annual performance review is due in 2 weeks. Please complete the form in Workday. It should take about 30-45 minutes. Let me know if you have any questions.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
+      "estimated_response_time": 10
+    },
+    {
+      "sender": "analyst@company.com",
+      "sender_domain": "internal",
+      "subject": "Data Question on Last Month's Numbers",
+      "body": "Quick question — in the October metrics dashboard, the conversion rate shows 3.2% but my calculation gives 2.9%. Can you check which source is correct? I want to make sure the board deck uses the right figure.",
+      "sender_importance": "Normal",
+      "base_priority": 4,
+      "estimated_response_time": 10
+    },
+    {
+      "sender": "sales@company.com",
+      "sender_domain": "internal",
+      "subject": "Customer Escalation — Need Technical Input",
+      "body": "We have a customer (mid-tier account, $80k ARR) threatening to churn due to API performance issues. They want a call with engineering this week. Can you join a 30 minute call Thursday at 2pm and provide context on our roadmap?",
+      "sender_importance": "Normal",
+      "base_priority": 7,
+      "estimated_response_time": 30
+    },
+    {
+      "sender": "ops@company.com",
+      "sender_domain": "internal",
+      "subject": "Office Supply Order — Submit by Friday",
+      "body": "Please submit your team's office supply requests through the facilities portal by Friday. We're doing a consolidated order. Link below.",
+      "sender_importance": "Normal",
+      "base_priority": 2,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "recruit@company.com",
+      "sender_domain": "internal",
+      "subject": "Interview Panel — Tuesday 3pm",
+      "body": "You're confirmed for the interview panel on Tuesday at 3pm for the Senior Engineer candidate. Please review the resume (attached) and prepare 2-3 technical questions. The debrief will be 30 minutes after the interview.",
+      "sender_importance": "Normal",
+      "base_priority": 5,
+      "estimated_response_time": 15
+    },
+    {
+      "sender": "partner@vendor.com",
+      "sender_domain": "external",
+      "subject": "Integration Partnership Proposal",
+      "body": "We're reaching out to explore a technical integration between our platforms. We believe there's significant value for both user bases. I've attached a 10-page proposal outline. Would love to schedule a 30-minute exploratory call.",
+      "sender_importance": "Normal",
+      "base_priority": 4,
+      "estimated_response_time": 20
+    },
+    {
+      "sender": "dev.teammate@company.com",
+      "sender_domain": "internal",
+      "subject": "Production Bug — Users Affected",
+      "body": "We have a live bug affecting about 200 users on the checkout flow. I've identified the issue but need your approval to push a hotfix outside of normal deploy windows. Can you approve?",
+      "sender_importance": "Normal",
+      "base_priority": 9,
+      "estimated_response_time": 15
+    }
+  ],
+  "spam_emails": [
+    {
+      "sender": "promo@deals.com",
+      "sender_domain": "external",
+      "subject": "🔥 FLASH SALE: 70% off SaaS tools — Today Only!",
+      "body": "Don't miss out! Top productivity tools at 70% off. Limited time offer. Click here to shop now. Unsubscribe at any time.",
+      "sender_importance": "Spam",
+      "base_priority": 1,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "newsletter@techdigest.io",
+      "sender_domain": "external",
+      "subject": "Top 10 AI Tools You Must Try This Week",
+      "body": "This week's roundup: the hottest AI tools, frameworks, and articles the tech community is talking about. Click through to read the full digest. Was this forwarded to you? Subscribe here.",
+      "sender_importance": "Spam",
+      "base_priority": 1,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "recruiter@staffing.com",
+      "sender_domain": "external",
+      "subject": "Exciting Opportunity — Senior Role, $250k+ Comp",
+      "body": "I came across your profile and think you'd be a perfect fit for an exciting opportunity at a Series C startup. The role offers $250k+ OTE and equity. Are you open to a quick 15-minute chat this week?",
+      "sender_importance": "Spam",
+      "base_priority": 2,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "noreply@conference.org",
+      "sender_domain": "external",
+      "subject": "Register Now: Tech Summit 2025 — Early Bird Ends Friday",
+      "body": "Join 5,000+ tech leaders at the annual Tech Summit. Early bird pricing ends Friday. Sessions on AI, cloud infrastructure, and leadership. Use code TECH25 for 20% off.",
+      "sender_importance": "Spam",
+      "base_priority": 1,
+      "estimated_response_time": 5
+    },
+    {
+      "sender": "marketing@saasplatform.com",
+      "sender_domain": "external",
+      "subject": "How Acme Corp saved 40 hours/week with our platform",
+      "body": "Case study: Discover how Acme Corp automated their workflow and saved 40 hours per week. Download the full case study to see if our platform could work for your team.",
+      "sender_importance": "Spam",
+      "base_priority": 1,
+      "estimated_response_time": 5
+    }
+  ]
+}

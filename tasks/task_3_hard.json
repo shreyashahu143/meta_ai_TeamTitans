@@ -1,0 +1,18 @@
+{
+  "task_id": 3,
+  "name": "Full Relationship Management",
+  "difficulty": "hard",
+  "description": "Balance time budget, relationship health, AND priority accuracy under tight time pressure. Includes time-trap emails (120 min even from VIPs), angry follow-ups, and a sunset penalty for unfinished work.",
+  "num_emails": 30,
+  "vip_count": 8,
+  "normal_count": 14,
+  "spam_count": 8,
+  "time_budget": 360,
+  "episode_length": 30,
+  "scoring": {
+    "formula": "0.3 * time_efficiency + 0.4 * relationship_health + 0.3 * priority_accuracy",
+    "time_efficiency_weight": 0.3,
+    "relationship_health_weight": 0.4,
+    "priority_accuracy_weight": 0.3
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "task_id": 2,
+  "name": "VIP Tracking",
+  "difficulty": "medium",
+  "description": "Ignoring VIPs triggers follow-up emails with escalating urgency. Learn to prioritize VIPs even when short on time.",
+  "num_emails": 25,
+  "vip_count": 8,
+  "normal_count": 12,
+  "spam_count": 5,
+  "time_budget": 420,
+  "episode_length": 25,
+  "scoring": {
+    "formula": "0.5 * priority_accuracy + 0.5 * vip_handling_score",
+    "priority_accuracy_weight": 0.5,
+    "vip_handling_weight": 0.5
+  }
+}

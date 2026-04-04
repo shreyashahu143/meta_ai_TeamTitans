@@ -1,0 +1,17 @@
+{
+  "task_id": 1,
+  "name": "Basic Prioritization",
+  "difficulty": "easy",
+  "description": "Learn to respond to high-priority emails and ignore spam within a normal workday.",
+  "num_emails": 20,
+  "vip_count": 5,
+  "normal_count": 10,
+  "spam_count": 5,
+  "time_budget": 480,
+  "episode_length": 20,
+  "scoring": {
+    "formula": "0.4 * value_efficiency + 0.6 * relationship_health",
+    "value_efficiency_weight": 0.4,
+    "relationship_health_weight": 0.6
+  }
+}
