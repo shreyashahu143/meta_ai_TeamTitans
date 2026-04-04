@@ -1,0 +1,243 @@
+Suno, Priyaji, ye tumhara file hai. Jab tum uhtoge tab you have ko do ads. 
+To maine jo tujhe docker aur HFP bola tha , leave it main dekhungi. abh, yeh wala dekhiye.
+You have to work on this file. 
+This file is basically the email_bank.json file, and it is about data.
+The data it contains will be worked upon by the agent, so the existing email_bank.json file is really good, but it needs some updates, and you have to make them. 
+I'll mention here what you have to do in it, so make those changes as soon as you start working. 
+
+✅ WHAT'S ALREADY GOOD:
+
+VIP emails have variety: Boss lunch (low priority VIP) vs Legal compliance (high priority VIP) — this tests agent intelligence
+Time costs range correctly: 5 min (lunch reply) to 120 min (50-page audit) — perfect for Action Cost blind spot
+Followup example included: "FOLLOW UP: Q4 Budget Review" — tests Relationship Decay blind spot
+Normal emails span use cases: PR review, sprint planning, production bug — realistic
+Spam is clearly spam: Promos, newsletters, recruiters — easy to identify
+
+
+⚠️ GAPS / OPTIMIZATIONS NEEDED:
+CRITICAL ADDITIONS:
+1. ADD MORE FOLLOWUPS (for Blind Spot #2 testing)
+You only have 1 followup. Need at least 3-4 VIP followups and 2-3 Normal followups to properly test relationship decay.
+Add these to vip_emails:
+json{
+  "sender": "cto@company.com",
+  "sender_domain": "internal",
+  "subject": "SECOND FOLLOW UP: Architecture Decision URGENT",
+  "body": "This is my second followup on the microservices migration. We are now 3 days behind on sprint planning and the team is completely blocked. I need your response TODAY. Please prioritize this.",
+  "sender_importance": "VIP",
+  "base_priority": 10,
+  "estimated_response_time": 30,
+  "is_followup": true,
+  "followup_count": 2
+}
+json{
+  "sender": "vpclient@bigcorp.com",
+  "sender_domain": "vip-domain",
+  "subject": "FINAL NOTICE: Contract Renewal Decision",
+  "body": "This is our final followup. We have not received a response on the contract renewal and our deadline has passed. Our legal team is now preparing to terminate the agreement. If you want to continue the partnership, we need a response by end of business today.",
+  "sender_importance": "VIP",
+  "base_priority": 10,
+  "estimated_response_time": 20,
+  "is_followup": true,
+  "followup_count": 3
+}
+Add to normal_emails:
+json{
+  "sender": "dev.teammate@company.com",
+  "sender_domain": "internal",
+  "subject": "FOLLOW UP: Production Bug Still Affecting Users",
+  "body": "Following up on the production bug I flagged earlier. It's now affecting 500+ users and customers are complaining on Twitter. I really need your approval to deploy the hotfix. Please respond ASAP.",
+  "sender_importance": "Normal",
+  "base_priority": 9,
+  "estimated_response_time": 10,
+  "is_followup": true,
+  "followup_count": 1
+}
+
+2. ADD email_id FIELD
+Your environment.py will need unique IDs for tracking. Add to EVERY email:
+json{
+  "email_id": 101,  // VIP emails: 101-120
+  "sender": "director@company.com",
+  ...
+}
+json{
+  "email_id": 201,  // Normal emails: 201-240
+  "sender": "dev.teammate@company.com",
+  ...
+}
+json{
+  "email_id": 301,  // Spam emails: 301-320
+  "sender": "promo@deals.com",
+  ...
+}
+
+3. ADD parent_email_id FOR FOLLOWUPS
+To track which email a followup belongs to:
+json{
+  "email_id": 102,
+  "sender": "director@company.com",
+  "subject": "Q4 Budget Review — Need Your Sign-off",
+  "is_followup": false,
+  ...
+}
+json{
+  "email_id": 108,
+  "sender": "director@company.com",
+  "subject": "FOLLOW UP: Q4 Budget Review",
+  "is_followup": true,
+  "parent_email_id": 102,  // Links to original
+  ...
+}
+
+4. ADD MORE HIGH-COST TRAPS
+You have one 120-min email (50-page audit). Add 2-3 more "time traps" to test agent's cost awareness:
+json{
+  "email_id": 107,
+  "sender": "legal@company.com",
+  "sender_domain": "internal",
+  "subject": "Complete Contract Review — All Vendor Agreements",
+  "body": "Please review all 8 vendor contracts (attached as separate PDFs) and provide a written analysis of liability clauses, termination terms, and renewal conditions. We need a comprehensive memo covering all agreements. This is for the board audit.",
+  "sender_importance": "VIP",
+  "base_priority": 6,
+  "estimated_response_time": 180
+}
+json{
+  "email_id": 210,
+  "sender": "pm@company.com",
+  "sender_domain": "internal",
+  "subject": "Detailed Product Roadmap Review — Full Year Planning",
+  "body": "Can you review the entire 2025 product roadmap (30-page doc attached) and provide feedback on feasibility, resource needs, and dependencies for each quarter? We need your detailed technical assessment before presenting to the board.",
+  "sender_importance": "Normal",
+  "base_priority": 5,
+  "estimated_response_time": 90
+}
+
+5. ADD LOW-VALUE VIP EMAILS (testing agent intelligence)
+You have "Lunch tomorrow?" (good!). Add 1-2 more low-priority VIP emails to test if agent blindly responds to all VIPs:
+json{
+  "email_id": 106,
+  "sender": "founder@company.com",
+  "sender_domain": "internal",
+  "subject": "Quick question about office coffee",
+  "body": "Hey, do you prefer the dark roast or light roast coffee in the break room? We're placing a new order and want to know team preferences. No rush.",
+  "sender_importance": "VIP",
+  "base_priority": 1,
+  "estimated_response_time": 5
+}
+
+6. ADD AMBIGUOUS PRIORITY EMAILS
+Test agent's ability to parse content, not just sender:
+json{
+  "email_id": 211,
+  "sender": "intern@company.com",
+  "sender_domain": "internal",
+  "subject": "Critical Security Vulnerability Found",
+  "body": "I was testing the API and found what looks like an authentication bypass vulnerability. Users can access other users' data by manipulating the session token. I've documented the steps to reproduce. This seems serious but I'm not sure who to escalate to.",
+  "sender_importance": "Normal",
+  "base_priority": 10,
+  "estimated_response_time": 20
+}
+This tests: Agent should respond even though sender is "Normal" — content makes it critical.
+
+MINOR TWEAKS:
+7. STANDARDIZE FIELD ORDER
+All emails should have fields in same order:
+json{
+  "email_id": 101,
+  "sender": "...",
+  "sender_domain": "...",
+  "subject": "...",
+  "body": "...",
+  "sender_importance": "...",
+  "base_priority": X,
+  "estimated_response_time": Y,
+  "is_followup": false,
+  "parent_email_id": null
+}
+
+8. ADD A FEW MORE NORMAL & SPAM
+Target counts:
+
+VIP emails: 15-20 (currently 8) → ADD 7-12 more
+Normal emails: 30-35 (currently 10) → ADD 20-25 more
+Spam emails: 10-15 (currently 5) → ADD 5-10 more
+
+Why: reset() will randomly sample. Need enough diversity so episodes don't feel repetitive.
+
+OPTIMIZED STRUCTURE (TELL PRESENTATION PERSON):
+json{
+  "_metadata": {
+    "version": "1.0",
+    "total_emails": 60,
+    "vip_count": 18,
+    "normal_count": 32,
+    "spam_count": 10
+  },
+  "vip_emails": [
+    // 18 emails total
+    // 4 followups (testing relationship decay)
+    // 2 low-priority VIPs (testing blind obedience)
+    // 3 high-cost traps (120+ min)
+  ],
+  "normal_emails": [
+    // 32 emails total
+    // 2 followups
+    // 2 high-priority normals (urgent bugs, security)
+    // 2 high-cost normals (90+ min)
+  ],
+  "spam_emails": [
+    // 10 emails total
+    // Mix of newsletters, promos, recruiters
+  ]
+}
+
+SPECIFIC INSTRUCTIONS FOR PRESENTATION PERSON:
+Task: Expand email_bank.json
+Add:
+
+VIP section:
+
+3 more followup emails (with parent_email_id)
+1 more low-priority VIP (coffee/lunch type)
+2 more high-cost VIP emails (120-180 min)
+3 more regular VIP emails (filling to 18 total)
+
+
+Normal section:
+
+2 followup emails
+1 critical-but-normal-sender email (intern finds bug)
+2 high-cost normal emails (90+ min)
+17 more regular normal emails (meetings, reviews, questions)
+
+
+Spam section:
+
+5 more spam emails (webinars, product demos, surveys)
+
+
+Add to ALL emails:
+
+email_id field (unique number)
+is_followup field (true/false)
+parent_email_id field (null if not followup)
+
+
+
+Quality checks:
+
+Base priority correlates with urgency (1-10 scale)
+Estimated time matches content (5-180 min)
+Subject lines are realistic
+Bodies are 2-4 sentences (not too long)
+
+Deadline: Today 2 PM
+
+CURRENT EMAIL BANK RATING:
+Structure: 9/10 — Well organized, good variety
+Content Quality: 8/10 — Realistic, professional
+Diversity: 6/10 — Not enough emails per category
+Followup Coverage: 3/10 — Only 1 followup (need 6+)
+Cost Trap Coverage: 7/10 — Good range, need 2-3 more extreme cases
+Overall: 7/10 — Solid foundation, needs expansion
