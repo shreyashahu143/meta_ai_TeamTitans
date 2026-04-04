@@ -30,6 +30,8 @@ import json
 import os
 import sys
 
+import uvicorn
+
 # Make sure models.py (one level up) is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -162,3 +164,10 @@ def get_state():
     """
     state = env.state()
     return state.dict()
+
+def main():
+    # Uvicorn ko programmatically run karne ka tarika
+    uvicorn.run("server.app:app", host="0.0.0.0", port=7860, reload=False)
+
+if __name__ == "__main__":
+    main()

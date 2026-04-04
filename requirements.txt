@@ -1,5 +1,7 @@
 # Email Triage RL Environment - Python 3.11 Compatible
 # ====================================================
+openenv-core
+# ====================================================
 
 # FastAPI server (v1 - avoids Rust dependency)
 fastapi==0.88.0
