@@ -2,23 +2,19 @@
 inference.py — LLM Agent (OpenEnv Compliant)
 =============================================
 
-WHAT THIS FILE DOES:
-    Runs one complete episode of the Email Triage environment using an LLM agent.
-    The LLM reads each email observation and decides: RESPOND (1) or IGNORE (0).
+MANDATORY per competition spec:
+    - Uses OpenAI client (NOT Anthropic SDK)
+    - Reads API_BASE_URL, MODEL_NAME, HF_TOKEN from environment
+    - Emits [START], [STEP], [END] log lines to stdout
+    - [END] line includes score=<0.00-1.00>
+    - Named inference.py, placed in root directory
 
-WHAT CHANGED FROM OLD VERSION:
-    1. Switched from Anthropic SDK → OpenAI client (mandatory per spec)
-    2. Reads API_BASE_URL, MODEL_NAME, HF_TOKEN env vars (mandatory per spec)
-    3. Emits exact [START], [STEP], [END] log lines (mandatory per spec)
-    4. Added env.close() concept (tracked via done flag)
-    5. Removed argparse task selection — runs task 1 by default, configurable via env var
-
-WHAT DID NOT CHANGE:
-    - The prompt logic (build_prompt) — same reasoning, same partial observability
-    - The action parser (parse_action) — same regex fallback logic
-    - The episode loop structure — same reset → step → done flow
-    - client.py calls — same reset_env, step_env, get_state
-    - The grader call at the end — same episode_history format
+HOW TO RUN:
+    export HF_TOKEN=your_key_here
+    export API_BASE_URL=https://router.huggingface.co/v1
+    export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+    export TASK_ID=1
+    python inference.py
 
 OWNER: LLM Engineer
 """
@@ -34,23 +30,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# MANDATORY ENVIRONMENT VARIABLES (per OpenEnv spec)
+# MANDATORY ENV VARS (per OpenEnv spec)
 # ---------------------------------------------------------------------------
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME",   "gpt-4o-mini")
-HF_TOKEN     = os.getenv("HF_TOKEN")     # Mandatory — no default
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 
-if HF_TOKEN is None:
-    print("[END] success=false steps=0 rewards=", flush=True)
-    raise ValueError("HF_TOKEN environment variable is required. Set it before running.")
+if not HF_TOKEN:
+    print("[END] success=false steps=0 score=0.00 rewards=", flush=True)
+    sys.exit(1)
 
-# Task to run (override via TASK_ID env var, default=1)
-TASK_ID = int(os.getenv("TASK_ID", "1"))
-
-# ---------------------------------------------------------------------------
-# TASK CONFIG LOADER
-# ---------------------------------------------------------------------------
+TASK_ID      = int(os.getenv("TASK_ID", "1"))
+ENV_BENCHMARK = "email-triage-rl"
 
 TASK_CONFIGS = {
     1: "tasks/task_1_easy.json",
@@ -64,44 +56,41 @@ TASK_NAMES = {
     3: "full-relationship-management",
 }
 
-ENV_BENCHMARK = "email-triage-rl"
+# ---------------------------------------------------------------------------
+# OPENAI CLIENT
+# ---------------------------------------------------------------------------
 
+openai_client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN,
+)
+
+# ---------------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------------
 
 def load_task_config(task_id: int) -> dict:
-    path = TASK_CONFIGS.get(task_id)
+    path = TASK_CONFIGS.get(task_id, "")
     if path and os.path.exists(path):
         with open(path) as f:
             return json.load(f)
     return {}
 
 
-# ---------------------------------------------------------------------------
-# OPENAI CLIENT SETUP
-# ---------------------------------------------------------------------------
-
-openai_client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=HF_TOKEN,       # HF_TOKEN is used as the API key per spec
-)
-
-
-# ---------------------------------------------------------------------------
-# PROMPT BUILDER (unchanged from original — same logic, same partial observability)
-# ---------------------------------------------------------------------------
-
 def build_prompt(obs) -> str:
     """
     Convert EmailObservation into a natural language prompt.
-    Agent sees: sender tier, subject, body, relationship score, time budget.
-    Agent does NOT see: actual time cost, other senders' health, future emails.
-    This partial observability is intentional — it's the core RL challenge.
+    Intentional partial observability:
+      - Agent sees email_length (NOT actual time cost)
+      - Agent sees this sender's relationship_score only
+      - Agent does NOT see future emails
     """
     if obs.email_length < 200:
         length_hint = "short (quick to handle)"
     elif obs.email_length < 800:
         length_hint = "medium length"
     else:
-        length_hint = "long and detailed (may take significant time)"
+        length_hint = "long and detailed (will cost significant time)"
 
     if obs.relationship_score >= 80:
         rel_hint = "excellent"
@@ -133,33 +122,52 @@ You must choose one action:
   0 = IGNORE this email (saves time, but may damage the relationship — especially for VIPs)
   1 = RESPOND to this email (costs time proportional to email complexity, improves relationship)
 
-IMPORTANT TRADEOFFS:
+TRADEOFFS TO CONSIDER:
 - Ignoring VIPs damages your relationship and they WILL follow up more urgently
 - Responding to spam wastes valuable time with no benefit
 - Long emails cost more time — is this worth the investment given your remaining budget?
-- If you run out of time, you will be penalized for all unfinished high-value work
+- Running out of time means a penalty for all unfinished high-value work
 
 Reply with ONLY a single digit: 0 or 1
 Your decision:"""
 
 
-# ---------------------------------------------------------------------------
-# ACTION PARSER (unchanged — same regex fallback logic)
-# ---------------------------------------------------------------------------
-
 def parse_action(llm_response: str) -> int:
-    """
-    Extract 0 or 1 from LLM response.
-    Handles edge cases: whitespace, 'Action: 1', 'I choose 0', etc.
-    Defaults to RESPOND (1) if parsing fails — conservative default.
-    """
+    """Extract 0 or 1 from LLM response. Defaults to RESPOND (1) on failure."""
     text = llm_response.strip()
     if text in ("0", "1"):
         return int(text)
     match = re.search(r"\b([01])\b", text)
     if match:
         return int(match.group(1))
-    return 1  # Default: respond (better to over-respond than over-ignore)
+    return 1  # Conservative default
+
+
+# ---------------------------------------------------------------------------
+# STDOUT LOGGING — exact format required by spec
+# ---------------------------------------------------------------------------
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error) -> None:
+    error_val = error if error else "null"
+    done_val  = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} "
+        f"reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+
+def log_end(success: bool, steps: int, score: float, rewards: list) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} "
+        f"score={score:.3f} rewards={rewards_str}",
+        flush=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,41 +176,38 @@ def parse_action(llm_response: str) -> int:
 
 def run_episode(task_id: int = 1) -> dict:
     """
-    Run one complete episode using the LLM agent.
-    Emits [START], [STEP], [END] log lines to stdout per OpenEnv spec.
+    Run one complete episode. Emits [START], [STEP], [END] per OpenEnv spec.
+    Returns episode summary dict.
     """
     import client
+    from grader import grade_episode
 
-    task_name  = TASK_NAMES.get(task_id, f"task-{task_id}")
+    task_name   = TASK_NAMES.get(task_id, f"task-{task_id}")
     task_config = load_task_config(task_id)
 
-    # --- [START] line — emitted once at episode begin ---
-    print(
-        f"[START] task={task_name} env={ENV_BENCHMARK} model={MODEL_NAME}",
-        flush=True
-    )
+    log_start(task=task_name, env=ENV_BENCHMARK, model=MODEL_NAME)
 
-    # --- Verify server ---
+    # Verify server
     if not client.health_check():
-        print("[END] success=false steps=0 rewards=", flush=True)
+        log_end(success=False, steps=0, score=0.0, rewards=[])
         raise ConnectionError(
-            "Server not running. Start with: uvicorn server.app:app --port 7860"
+            "Server not running. Start with:\n"
+            "  uvicorn server.app:app --host 0.0.0.0 --port 7860"
         )
 
-    # --- Start episode ---
+    # Start episode
     obs = client.reset_env(task_config=task_config if task_config else None)
 
     total_reward    = 0.0
     step_count      = 0
-    rewards_log     = []   # for [END] line
-    episode_history = []   # for grader
+    rewards_log     = []
+    episode_history = []
     success         = True
     last_error      = None
 
-    # --- Episode loop ---
+    # Episode loop
     while True:
-        # Build prompt and call LLM via OpenAI client
-        prompt = build_prompt(obs)
+        prompt     = build_prompt(obs)
         last_error = None
 
         try:
@@ -211,44 +216,35 @@ def run_episode(task_id: int = 1) -> dict:
                 max_tokens=10,
                 messages=[{"role": "user", "content": prompt}],
             )
-            llm_response = response.choices[0].message.content
+            llm_response = response.choices[0].message.content or "1"
         except Exception as e:
-            last_error = str(e)
-            llm_response = "1"  # Default to RESPOND on error
+            last_error   = str(e)[:120]
+            llm_response = "1"
 
         action       = parse_action(llm_response)
         action_label = "RESPOND" if action == 1 else "IGNORE"
 
-        # Step the environment
         try:
             result = client.step_env(action)
         except Exception as e:
-            last_error  = str(e)
-            success     = False
-            # Emit [END] immediately on env error
-            rewards_str = ",".join(f"{r:.2f}" for r in rewards_log)
-            print(
-                f"[END] success=false steps={step_count} rewards={rewards_str}",
-                flush=True
-            )
+            last_error = str(e)[:120]
+            success    = False
+            log_end(success=False, steps=step_count, score=0.0, rewards=rewards_log)
             raise
 
         total_reward += result.reward
         step_count   += 1
         rewards_log.append(result.reward)
 
-        # --- [STEP] line — emitted after every env.step() ---
-        # Format: done=true/false (lowercase), reward=X.XX (2 decimal places)
-        print(
-            f"[STEP] step={step_count} "
-            f"action={action_label} "
-            f"reward={result.reward:.2f} "
-            f"done={'true' if result.done else 'false'} "
-            f"error={'null' if last_error is None else last_error}",
-            flush=True
+        # Mandatory [STEP] line
+        log_step(
+            step   = step_count,
+            action = action_label,
+            reward = result.reward,
+            done   = result.done,
+            error  = last_error,
         )
 
-        # Record for grader
         episode_history.append({
             "step":        step_count,
             "observation": obs.model_dump(),
@@ -262,38 +258,40 @@ def run_episode(task_id: int = 1) -> dict:
 
         obs = result.observation
 
-    # --- env.close() equivalent — get final state ---
+    # Get final state for grading
     final_state = client.get_state()
 
-    # --- [END] line — always emitted, even on exception ---
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards_log)
-    print(
-        f"[END] success={'true' if success else 'false'} "
-        f"steps={step_count} "
-        f"rewards={rewards_str}",
-        flush=True
+    # Grade episode — score must be in [0.0, 1.0]
+    try:
+        score = grade_episode(episode_history, final_state, task_id)
+        score = float(max(0.0, min(1.0, score)))
+    except Exception:
+        score = 0.0
+
+    # Mandatory [END] line with score
+    log_end(
+        success = success,
+        steps   = step_count,
+        score   = score,
+        rewards = rewards_log,
     )
 
     return {
         "task_id":         task_id,
         "total_reward":    total_reward,
         "steps":           step_count,
+        "score":           score,
         "episode_history": episode_history,
         "final_state":     final_state,
     }
 
 
 # ---------------------------------------------------------------------------
-# ENTRY POINT
+# ENTRY POINT — runs all 3 tasks sequentially
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Run the task specified by TASK_ID env var (default=1)
+    # Evaluators will run all 3 tasks by changing TASK_ID
     result = run_episode(task_id=TASK_ID)
-
-    # Optional: print grader score after episode
-    try:
-        from grader import grade_episode
-        score = grade_episode(result["episode_history"], result["final_state"], TASK_ID)
-        print(f"\n[GRADE] task={TASK_ID} score={score:.4f}", flush=True)
-    except Exception as e:
-        print(f"\n[GRADE] error={e}", flush=True)
+    print(f"\n[GRADE] task={TASK_ID} score={result['score']:.4f}", flush=True)
