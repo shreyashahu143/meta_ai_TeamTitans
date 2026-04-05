@@ -239,19 +239,25 @@ class EmailTriageEnv:
         self._current_email_index += 1
         self._current_timestep += 1
 
-        # ------ Check done conditions ------
         inbox_empty = self._current_email_index >= len(self._inbox)
         time_up = self._time_budget_remaining <= 0
-
         done = inbox_empty or time_up
 
         if done and time_up and not inbox_empty:
-            # Apply Sunset Penalty for unhandled emails
             sunset_penalty = self._calculate_sunset_penalty()
             reward += sunset_penalty
             info["sunset_penalty"] = sunset_penalty
 
-        next_obs = self._build_observation() if not done else self._build_final_observation()
+        # Time bonus: only when inbox is fully cleared
+        if done and inbox_empty:
+            time_efficiency_ratio = self._time_budget_remaining / self.task_config.get("time_budget", DEFAULT_TIME_BUDGET)
+            time_bonus = round(time_efficiency_ratio * 10, 4)
+            reward += time_bonus
+            info["time_bonus"] = time_bonus
+            info["episode_reward"] = round(reward + time_bonus, 4) 
+
+        # next_obs is ALWAYS assigned here, unconditionally
+        next_obs = self._build_final_observation() if done else self._build_observation()
 
         return StepResponse(
             observation=next_obs,
@@ -284,15 +290,16 @@ class EmailTriageEnv:
     # -----------------------------------------------------------------------
     # PRIVATE HELPERS
     # -----------------------------------------------------------------------
-
     def _reward_respond(self, email: Email, relationship: Relationship) -> Tuple[float, int]:
-        """
-        Calculates reward for RESPOND action.
-        Formula: (email_value - 0.5 × action_cost) × (relationship_health / 100)
-        """
-        email_value = email.base_priority * email.sender_urgency_multiplier
+        email_value = email.base_priority * email.sender_urgency_multiplier  # 1–10
         action_cost = email.estimated_response_time
-        reward = (email_value - 0.5 * action_cost) * (relationship.health / 100)
+        
+        # Normalize cost to [0, 1] range (max possible = 120 min)
+        normalized_cost = action_cost / 120.0
+        
+        # Now both terms live in comparable scales
+        # email_value: 1–10, cost_penalty: 0–5
+        reward = (email_value - 5.0 * normalized_cost) * (relationship.health / 100)
         return round(reward, 4), action_cost
 
     def _reward_ignore(self, email: Email, relationship: Relationship) -> float:

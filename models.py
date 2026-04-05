@@ -93,7 +93,7 @@ class Email(BaseModel):
 
     # Time tracking (Blind Spot #1)
     estimated_response_time: int = Field(
-        ..., ge=5, le=120,
+        ..., ge=5, le=180,
         description="Minutes to respond. HIDDEN from agent — it sees email_length instead."
     )
 

@@ -245,7 +245,7 @@ git push
 # Terminal 1 — Start the server
 source venv/bin/activate
 cd server/
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 
 # Terminal 2 — Run the agent
 source venv/bin/activate
@@ -260,7 +260,7 @@ cd server/
 docker build -t email-triage-env .
 
 # Run the container
-docker run -p 8000:8000 email-triage-env
+docker run -p 7860:7860 email-triage-env
 
 # In another terminal, run the agent
 python inference.py --task 1

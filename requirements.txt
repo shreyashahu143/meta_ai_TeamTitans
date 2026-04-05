@@ -14,7 +14,7 @@ pydantic==1.10.13
 requests==2.31.0
 
 # LLM integration
-anthropic==0.25.0
+openai==1.54.0 
 
 # Environment variables
 python-dotenv==1.0.1
