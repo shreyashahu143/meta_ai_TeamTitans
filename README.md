@@ -450,21 +450,7 @@ Then verify manually:
 
 ---
 
-## 👥 Team Responsibilities
 
-| File | Owner | Notes |
-|---|---|---|
-| `models.py` | System Architect | Data contracts — everyone depends on this |
-| `server/environment.py` | Algorithm Engineer | Core RL logic |
-| `server/app.py` | Algorithm Engineer | FastAPI wrapper |
-| `Dockerfile` | Algorithm Engineer | Container setup |
-| `client.py` | LLM Engineer | HTTP client |
-| `inference.py` | LLM Engineer | Agent + prompt engineering |
-| `grader.py` | LLM Engineer | Scoring all 3 tasks |
-| `data/email_bank.json` | Content Lead | 60 email templates |
-| `tasks/*.json` | System Architect | Task config files |
-
----
 
 ## 🐙 Git Workflow
 
