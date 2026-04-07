@@ -38,7 +38,7 @@ MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN     = os.getenv("HF_TOKEN")
 
 if not HF_TOKEN:
-    print("[END] success=false steps=0 score=0.00 rewards=", flush=True)
+    print("[END] success=false steps=0 rewards=", flush=True)
     sys.exit(1)
 
 TASK_ID      = int(os.getenv("TASK_ID", "1"))
@@ -161,11 +161,10 @@ def log_step(step: int, action: str, reward: float, done: bool, error) -> None:
     )
 
 
-def log_end(success: bool, steps: int, score: float, rewards: list) -> None:
+def log_end(success: bool, steps: int, rewards: list) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} "
-        f"score={score:.3f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -189,7 +188,7 @@ def run_episode(task_id: int = 1) -> dict:
 
     # Verify server
     if not client.health_check():
-        log_end(success=False, steps=0, score=0.0, rewards=[])
+        log_end(success=False, steps=0, rewards=[])
         raise ConnectionError(
             "Server not running. Start with:\n"
             "  uvicorn server.app:app --host 0.0.0.0 --port 7860"
@@ -229,7 +228,7 @@ def run_episode(task_id: int = 1) -> dict:
         except Exception as e:
             last_error = str(e)[:120]
             success    = False
-            log_end(success=False, steps=step_count, score=0.0, rewards=rewards_log)
+            log_end(success=False, steps=step_count, rewards=rewards_log)
             raise
 
         total_reward += result.reward
@@ -272,7 +271,6 @@ def run_episode(task_id: int = 1) -> dict:
     log_end(
         success = success,
         steps   = step_count,
-        score   = score,
         rewards = rewards_log,
     )
 
@@ -280,7 +278,6 @@ def run_episode(task_id: int = 1) -> dict:
         "task_id":         task_id,
         "total_reward":    total_reward,
         "steps":           step_count,
-        "score":           score,
         "episode_history": episode_history,
         "final_state":     final_state,
     }
@@ -294,4 +291,4 @@ if __name__ == "__main__":
     # Run the task specified by TASK_ID env var (default=1)
     # Evaluators will run all 3 tasks by changing TASK_ID
     result = run_episode(task_id=TASK_ID)
-    print(f"\n[GRADE] task={TASK_ID} score={result['score']:.4f}", flush=True)
+    print(f"\n[GRADE] task={TASK_ID}", flush=True)

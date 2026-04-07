@@ -226,6 +226,32 @@ class EmailTriageEnv:
             # Mark VIP as angry (would trigger follow-up injection)
             if current_email.sender_importance == "VIP":
                 relationship.is_angry = True
+                # Inject follow-up email into inbox
+                followup_pool = [
+                    e for e in self._email_bank.get("vip_emails", [])
+                    if e.get("is_followup") and e.get("parent_email_id") == current_email.email_id
+                ]
+                if followup_pool:
+                    template = followup_pool[0]
+                    followup = Email(
+                        email_id=len(self._inbox),
+                        sender=template["sender"],
+                        sender_domain=template.get("sender_domain", "internal"),
+                        subject=template["subject"],
+                        body=template["body"],
+                        sender_importance="VIP",
+                        base_priority=min(10, current_email.base_priority + 2),
+                        estimated_response_time=self._sample_time_cost(template),
+                        is_followup=True,
+                        parent_email_id=current_email.email_id,
+                        received_at_timestep=self._current_timestep,
+                    )
+                    # Insert after current position so agent sees it soon
+                    insert_pos = min(
+                        self._current_email_index + 2,
+                        len(self._inbox)
+                    )
+                    self._inbox.insert(insert_pos, followup)
 
             info = {
                 "action":             "ignore",
