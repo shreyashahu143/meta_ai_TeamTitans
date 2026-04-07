@@ -226,48 +226,34 @@ class EmailTriageEnv:
             # Mark sender as angry and inject follow-up if one exists in bank
             if current_email.sender_importance in ("VIP", "Normal"):
                 relationship.is_angry = True
-                bank_id = getattr(current_email, "bank_email_id", None)
 
-                if bank_id is not None:
-                    # Search both vip and normal pools for a matching follow-up
-                    all_templates = (
-                        self._email_bank.get("vip_emails", [])
-                        + self._email_bank.get("normal_emails", [])
+                # Only inject one follow-up per original email (not per follow-up)
+                # This prevents infinite chains while keeping the dynamic mechanic
+                already_has_followup = any(
+                    e.parent_email_id == current_email.email_id
+                    for e in self._inbox
+                )
+
+                if not already_has_followup:
+                    followup = Email(
+                        email_id                = len(self._inbox),
+                        sender                  = current_email.sender,
+                        sender_domain           = current_email.sender_domain,
+                        subject                 = f"FOLLOW UP: {current_email.subject}",
+                        body                    = (
+                            f"I still need a response on my previous email:\n\n"
+                            f"---\n{current_email.body[:500]}\n---\n\n"
+                            f"Please reply as soon as possible."
+                        ),
+                        sender_importance       = current_email.sender_importance,
+                        base_priority           = min(10, current_email.base_priority + 2),
+                        estimated_response_time = max(5, current_email.estimated_response_time // 2),
+                        is_followup             = True,
+                        parent_email_id         = current_email.email_id,
+                        received_at_timestep    = self._current_timestep,
                     )
-                    followup_pool = [
-                        e for e in all_templates
-                        if e.get("is_followup") and e.get("parent_email_id") == bank_id
-                    ]
-
-                    if followup_pool:
-                        template = followup_pool[0]
-                        # Don't inject the same follow-up twice
-                        already_injected = any(
-                            getattr(e, "bank_email_id", None) == template.get("email_id")
-                            for e in self._inbox
-                        )
-                        if already_injected:
-                            pass
-                        else:
-                            followup = Email(
-                            email_id               = len(self._inbox),
-                            sender                 = template["sender"],
-                            sender_domain          = template.get("sender_domain", "internal"),
-                            subject                = template["subject"],
-                            body                   = template["body"],
-                            sender_importance      = template["sender_importance"],
-                            base_priority          = min(10, current_email.base_priority + 2),
-                            estimated_response_time= self._sample_time_cost(template),
-                            is_followup            = True,
-                            parent_email_id        = current_email.email_id,
-                            received_at_timestep   = self._current_timestep,
-                        )
-                        followup.bank_email_id = template.get("email_id")
-                        insert_pos = min(
-                            self._current_email_index + 2,
-                            len(self._inbox)
-                        )
-                        self._inbox.insert(insert_pos, followup)
+                    insert_pos = min(self._current_email_index + 2, len(self._inbox))
+                    self._inbox.insert(insert_pos, followup)
 
             info = {
                 "action":             "ignore",

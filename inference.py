@@ -161,10 +161,16 @@ def log_step(step: int, action: str, reward: float, done: bool, error) -> None:
     )
 
 
-def log_end(success: bool, steps: int, rewards: list) -> None:
+def log_end(success: bool, steps: int, rewards: list, score: float, task_name: str = None) -> None:
+    """
+    Emit [END] line with score (mandatory per spec).
+    Optionally includes task name for clarity (extra field allowed).
+    """
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    extra = f" task={task_name}" if task_name else ""
     print(
-        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} "
+        f"rewards={rewards_str} score={score:.4f}{extra}",
         flush=True,
     )
 
@@ -188,7 +194,7 @@ def run_episode(task_id: int = 1) -> dict:
 
     # Verify server
     if not client.health_check():
-        log_end(success=False, steps=0, rewards=[])
+        log_end(success=False, steps=0, rewards=[], score=0.0, task_name=task_name)
         raise ConnectionError(
             "Server not running. Start with:\n"
             "  uvicorn server.app:app --host 0.0.0.0 --port 7860"
@@ -228,7 +234,7 @@ def run_episode(task_id: int = 1) -> dict:
         except Exception as e:
             last_error = str(e)[:120]
             success    = False
-            log_end(success=False, steps=step_count, rewards=rewards_log)
+            log_end(success=False, steps=step_count, rewards=rewards_log, score=0.0, task_name=task_name)
             raise
 
         total_reward += result.reward
@@ -267,11 +273,13 @@ def run_episode(task_id: int = 1) -> dict:
     except Exception:
         score = 0.0
 
-    # Mandatory [END] line with score
+    # Mandatory [END] line with score, plus optional task name
     log_end(
-        success = success,
-        steps   = step_count,
-        rewards = rewards_log,
+        success   = success,
+        steps     = step_count,
+        rewards   = rewards_log,
+        score     = score,
+        task_name = task_name,
     )
 
     return {
@@ -284,11 +292,11 @@ def run_episode(task_id: int = 1) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# ENTRY POINT — runs all 3 tasks sequentially
+# ENTRY POINT — runs the task specified by TASK_ID env var
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     # Run the task specified by TASK_ID env var (default=1)
     # Evaluators will run all 3 tasks by changing TASK_ID
     result = run_episode(task_id=TASK_ID)
-    print(f"\n[GRADE] task={TASK_ID}", flush=True)
+   
