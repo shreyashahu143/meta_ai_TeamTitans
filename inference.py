@@ -1,92 +1,97 @@
 """
-inference.py — LLM Agent (The Customer / Decision Maker)
-=========================================================
+inference.py — LLM Agent (OpenEnv Compliant)
+=============================================
 
-PURPOSE:
-    This is where the AI agent lives. It plays the email triage "game" by:
-        1. Calling reset_env() to start a new episode
-        2. Reading the EmailObservation (what email am I looking at?)
-        3. Building a prompt and calling Claude API
-        4. Parsing Claude's response → action (0 or 1)
-        5. Calling step_env(action) to advance
-        6. Repeating until done=True
+MANDATORY per competition spec:
+    - Uses OpenAI client (NOT Anthropic SDK)
+    - Reads API_BASE_URL, MODEL_NAME, HF_TOKEN from environment
+    - Emits [START], [STEP], [END] log lines to stdout
+    - [END] line includes score=<0.00-1.00>
+    - Named inference.py, placed in root directory
 
-    The LLM agent uses PARTIAL OBSERVABILITY — it only sees one email at a time,
-    and does NOT see actual time costs or other senders' relationship scores.
-
-CONNECTS TO:
-    ← client.py          (imports reset_env, step_env, get_state)
-    ← models.py          (EmailObservation type hints)
-    → Anthropic API      (calls Claude to decide action)
-
-SETUP:
-    Set ANTHROPIC_API_KEY in your .env file or environment.
-    Set ENV_SERVER_URL if server is not on localhost:8000.
-
-RUN:
-    python inference.py --task 1          # Run Task 1 (easy)
-    python inference.py --task 2          # Run Task 2 (medium)
-    python inference.py --task 3 --debug  # Run Task 3 with debug output
+HOW TO RUN:
+    export HF_TOKEN=your_key_here
+    export API_BASE_URL=https://router.huggingface.co/v1
+    export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+    export TASK_ID=1
+    python inference.py
 
 OWNER: LLM Engineer
 """
 
-import argparse
-import json
 import os
-import re
 import sys
+import json
+import re
 
-import anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
-# Load API key from .env
 load_dotenv()
 
-import client
-from models import EmailObservation
-
 # ---------------------------------------------------------------------------
-# CONFIG
+# MANDATORY ENV VARS (per OpenEnv spec)
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-MODEL = "claude-3-5-haiku-20241022"  # Fast and cheap for RL loops
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 
-# Task config files
+if not HF_TOKEN:
+    print("[END] success=false steps=0 rewards=", flush=True)
+    sys.exit(1)
+
+TASK_ID      = int(os.getenv("TASK_ID", "1"))
+ENV_BENCHMARK = "email-triage-rl"
+
 TASK_CONFIGS = {
     1: "tasks/task_1_easy.json",
     2: "tasks/task_2_medium.json",
     3: "tasks/task_3_hard.json",
 }
 
+TASK_NAMES = {
+    1: "basic-prioritization",
+    2: "vip-tracking",
+    3: "full-relationship-management",
+}
 
 # ---------------------------------------------------------------------------
-# PROMPT BUILDER
+# OPENAI CLIENT
 # ---------------------------------------------------------------------------
 
-def build_prompt(obs: EmailObservation) -> str:
-    """
-    Convert EmailObservation into a natural language prompt for Claude.
+openai_client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN,
+)
 
-    KEY DESIGN: We describe the email in plain English, NOT as JSON.
-    The agent must reason about it like a human would.
+# ---------------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------------
 
-    Hidden from agent (intentional partial observability):
-        - Actual time cost (agent sees email_length as a proxy)
-        - Other senders' relationship scores
-        - Future emails
-        - Degradation rates
+def load_task_config(task_id: int) -> dict:
+    path = TASK_CONFIGS.get(task_id, "")
+    if path and os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+
+def build_prompt(obs) -> str:
     """
-    # Translate length to rough difficulty hint
+    Convert EmailObservation into a natural language prompt.
+    Intentional partial observability:
+      - Agent sees email_length (NOT actual time cost)
+      - Agent sees this sender's relationship_score only
+      - Agent does NOT see future emails
+    """
     if obs.email_length < 200:
         length_hint = "short (quick to handle)"
     elif obs.email_length < 800:
         length_hint = "medium length"
     else:
-        length_hint = "long and detailed (may take significant time)"
+        length_hint = "long and detailed (will cost significant time)"
 
-    # Relationship health description
     if obs.relationship_score >= 80:
         rel_hint = "excellent"
     elif obs.relationship_score >= 60:
@@ -96,7 +101,7 @@ def build_prompt(obs: EmailObservation) -> str:
     else:
         rel_hint = "critically damaged — this person is frustrated with you"
 
-    prompt = f"""You are an AI email triage assistant managing a professional inbox.
+    return f"""You are an AI email triage assistant managing a professional inbox.
 
 CURRENT SITUATION:
 - Time remaining today: {obs.time_budget_remaining} minutes
@@ -117,175 +122,173 @@ You must choose one action:
   0 = IGNORE this email (saves time, but may damage the relationship — especially for VIPs)
   1 = RESPOND to this email (costs time proportional to email complexity, improves relationship)
 
-IMPORTANT TRADEOFFS TO CONSIDER:
+TRADEOFFS TO CONSIDER:
 - Ignoring VIPs damages your relationship and they WILL follow up more urgently
 - Responding to spam wastes valuable time with no benefit
 - Long emails cost more time — is this worth the investment given your remaining budget?
-- If you run out of time with emails left, you'll be penalized for all unfinished high-value work
+- Running out of time means a penalty for all unfinished high-value work
 
 Reply with ONLY a single digit: 0 or 1
 Your decision:"""
 
-    return prompt
-
-
-# ---------------------------------------------------------------------------
-# ACTION PARSER
-# ---------------------------------------------------------------------------
 
 def parse_action(llm_response: str) -> int:
-    """
-    Extract action (0 or 1) from LLM response.
-    Handles edge cases: whitespace, "Action: 1", "I choose 0", etc.
-
-    Returns:
-        0 or 1. Defaults to 1 (respond) if parsing fails — conservative default.
-    """
+    """Extract 0 or 1 from LLM response. Defaults to RESPOND (1) on failure."""
     text = llm_response.strip()
-
-    # Direct digit
     if text in ("0", "1"):
         return int(text)
-
-    # Find first digit in response
     match = re.search(r"\b([01])\b", text)
     if match:
         return int(match.group(1))
-
-    # Fallback: respond (conservative — better to over-respond than over-ignore)
-    print(f"[WARN] Could not parse action from: '{text[:100]}'. Defaulting to RESPOND (1).")
-    return 1
+    return 1  # Conservative default
 
 
 # ---------------------------------------------------------------------------
-# MAIN AGENT LOOP
+# STDOUT LOGGING — exact format required by spec
 # ---------------------------------------------------------------------------
 
-def run_episode(task_id: int = 1, debug: bool = False) -> dict:
-    """
-    Run one complete episode using the LLM agent.
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
-    Args:
-        task_id: 1, 2, or 3. Loads the corresponding task config.
-        debug: Print detailed step-by-step output.
 
-    Returns:
-        dict with episode summary: total_reward, steps, actions_taken, final_state
+def log_step(step: int, action: str, reward: float, done: bool, error) -> None:
+    error_val = error if error else "null"
+    done_val  = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} "
+        f"reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+
+def log_end(success: bool, steps: int, rewards: list) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
+        flush=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# MAIN EPISODE RUNNER
+# ---------------------------------------------------------------------------
+
+def run_episode(task_id: int = 1) -> dict:
     """
-    # --- Verify server is running ---
+    Run one complete episode. Emits [START], [STEP], [END] per OpenEnv spec.
+    Returns episode summary dict.
+    """
+    import client
+    from grader import grade_episode
+
+    task_name   = TASK_NAMES.get(task_id, f"task-{task_id}")
+    task_config = load_task_config(task_id)
+
+    log_start(task=task_name, env=ENV_BENCHMARK, model=MODEL_NAME)
+
+    # Verify server
     if not client.health_check():
+        log_end(success=False, steps=0, rewards=[])
         raise ConnectionError(
-            "Server is not running. Start it first:\n"
-            "  cd server/ && uvicorn app:app --port 8000"
+            "Server not running. Start with:\n"
+            "  uvicorn server.app:app --host 0.0.0.0 --port 7860"
         )
 
-    # --- Load task config ---
-    task_config = {}
-    task_path = TASK_CONFIGS.get(task_id)
-    if task_path and os.path.exists(task_path):
-        with open(task_path) as f:
-            task_config = json.load(f)
-        print(f"[INFO] Loaded task config: {task_path}")
-
-    # --- Start episode ---
-    anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-    print(f"\n{'='*50}")
-    print(f"  EMAIL TRIAGE — TASK {task_id}")
-    print(f"{'='*50}\n")
-
+    # Start episode
     obs = client.reset_env(task_config=task_config if task_config else None)
 
-    total_reward = 0.0
-    step_count = 0
-    actions_taken = []
+    total_reward    = 0.0
+    step_count      = 0
+    rewards_log     = []
     episode_history = []
+    success         = True
+    last_error      = None
 
-    # --- Episode loop ---
+    # Episode loop
     while True:
-        if debug:
-            print(f"\n--- Step {step_count + 1} ---")
-            print(f"Email: [{obs.sender_importance}] {obs.subject[:60]}")
-            print(f"Relationship: {obs.relationship_score:.0f}/100 | Time left: {obs.time_budget_remaining} min | Emails left: {obs.emails_remaining}")
-
-        # Build prompt and call LLM
-        prompt = build_prompt(obs)
+        prompt     = build_prompt(obs)
+        last_error = None
 
         try:
-            message = anthropic_client.messages.create(
-                model=MODEL,
+            response = openai_client.chat.completions.create(
+                model=MODEL_NAME,
                 max_tokens=10,
                 messages=[{"role": "user", "content": prompt}],
             )
-            llm_response = message.content[0].text
+            llm_response = response.choices[0].message.content or "1"
         except Exception as e:
-            print(f"[ERROR] LLM call failed: {e}. Defaulting to RESPOND.")
+            last_error   = str(e)[:120]
             llm_response = "1"
 
-        action = parse_action(llm_response)
+        action       = parse_action(llm_response)
         action_label = "RESPOND" if action == 1 else "IGNORE"
 
-        if debug:
-            print(f"Agent decision: {action_label} ({action})")
+        try:
+            result = client.step_env(action)
+        except Exception as e:
+            last_error = str(e)[:120]
+            success    = False
+            log_end(success=False, steps=step_count, rewards=rewards_log)
+            raise
 
-        # Step the environment
-        result = client.step_env(action)
         total_reward += result.reward
-        step_count += 1
-        actions_taken.append(action)
+        step_count   += 1
+        rewards_log.append(result.reward)
 
-        # Record history (for grader)
+        # Mandatory [STEP] line
+        log_step(
+            step   = step_count,
+            action = action_label,
+            reward = result.reward,
+            done   = result.done,
+            error  = last_error,
+        )
+
         episode_history.append({
-            "step": step_count,
+            "step":        step_count,
             "observation": obs.model_dump(),
-            "action": action,
-            "reward": result.reward,
-            "info": result.info,
+            "action":      action,
+            "reward":      result.reward,
+            "info":        result.info,
         })
 
-        if debug:
-            print(f"Reward: {result.reward:+.2f} | Total: {total_reward:+.2f}")
-
         if result.done:
-            print(f"\n{'='*50}")
-            print(f"  EPISODE COMPLETE")
-            print(f"  Steps:        {step_count}")
-            print(f"  Total Reward: {total_reward:+.2f}")
-            print(f"  Responds:     {actions_taken.count(1)}")
-            print(f"  Ignores:      {actions_taken.count(0)}")
-            print(f"{'='*50}\n")
             break
 
         obs = result.observation
 
-    # Get final state for grader
+    # Get final state for grading
     final_state = client.get_state()
 
+    # Grade episode — score must be in [0.0, 1.0]
+    try:
+        score = grade_episode(episode_history, final_state, task_id)
+        score = float(max(0.0, min(1.0, score)))
+    except Exception:
+        score = 0.0
+
+    # Mandatory [END] line with score
+    log_end(
+        success = success,
+        steps   = step_count,
+        rewards = rewards_log,
+    )
+
     return {
-        "task_id": task_id,
-        "total_reward": total_reward,
-        "steps": step_count,
-        "actions": actions_taken,
+        "task_id":         task_id,
+        "total_reward":    total_reward,
+        "steps":           step_count,
         "episode_history": episode_history,
-        "final_state": final_state,
+        "final_state":     final_state,
     }
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# ENTRY POINT — runs all 3 tasks sequentially
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the Email Triage LLM Agent")
-    parser.add_argument("--task", type=int, default=1, choices=[1, 2, 3],
-                        help="Task difficulty: 1=easy, 2=medium, 3=hard")
-    parser.add_argument("--debug", action="store_true",
-                        help="Print detailed step-by-step output")
-    args = parser.parse_args()
-
-    if not ANTHROPIC_API_KEY:
-        print("[ERROR] ANTHROPIC_API_KEY not set. Add it to your .env file.")
-        sys.exit(1)
-
-    result = run_episode(task_id=args.task, debug=args.debug)
-    print(f"Final result saved. Total reward: {result['total_reward']:+.2f}")
+    # Run the task specified by TASK_ID env var (default=1)
+    # Evaluators will run all 3 tasks by changing TASK_ID
+    result = run_episode(task_id=TASK_ID)
+    print(f"\n[GRADE] task={TASK_ID}", flush=True)
