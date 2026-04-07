@@ -35,8 +35,7 @@ import copy
 import json
 import os
 import random
-from typing import Dict, List, Optional, Tuple
-
+from typing import Dict, List, Optional, Tuple 
 from models import (
     RELATIONSHIP_CONFIG,
     Action,
@@ -139,6 +138,7 @@ class EmailTriageEnv:
                 parent_email_id        = template.get("parent_email_id", None),
                 received_at_timestep   = 0,
             )
+            email.bank_email_id = template.get("email_id")   # store original bank ID
             self._inbox.append(email)
 
         # Initialise relationships for all unique senders
@@ -223,35 +223,51 @@ class EmailTriageEnv:
             if self._ignored_senders[sender] > 1:
                 relationship.health = max(0.0, relationship.health - 10)
 
-            # Mark VIP as angry (would trigger follow-up injection)
-            if current_email.sender_importance == "VIP":
+            # Mark sender as angry and inject follow-up if one exists in bank
+            if current_email.sender_importance in ("VIP", "Normal"):
                 relationship.is_angry = True
-                # Inject follow-up email into inbox
-                followup_pool = [
-                    e for e in self._email_bank.get("vip_emails", [])
-                    if e.get("is_followup") and e.get("parent_email_id") == current_email.email_id
-                ]
-                if followup_pool:
-                    template = followup_pool[0]
-                    followup = Email(
-                        email_id=len(self._inbox),
-                        sender=template["sender"],
-                        sender_domain=template.get("sender_domain", "internal"),
-                        subject=template["subject"],
-                        body=template["body"],
-                        sender_importance="VIP",
-                        base_priority=min(10, current_email.base_priority + 2),
-                        estimated_response_time=self._sample_time_cost(template),
-                        is_followup=True,
-                        parent_email_id=current_email.email_id,
-                        received_at_timestep=self._current_timestep,
+                bank_id = getattr(current_email, "bank_email_id", None)
+
+                if bank_id is not None:
+                    # Search both vip and normal pools for a matching follow-up
+                    all_templates = (
+                        self._email_bank.get("vip_emails", [])
+                        + self._email_bank.get("normal_emails", [])
                     )
-                    # Insert after current position so agent sees it soon
-                    insert_pos = min(
-                        self._current_email_index + 2,
-                        len(self._inbox)
-                    )
-                    self._inbox.insert(insert_pos, followup)
+                    followup_pool = [
+                        e for e in all_templates
+                        if e.get("is_followup") and e.get("parent_email_id") == bank_id
+                    ]
+
+                    if followup_pool:
+                        template = followup_pool[0]
+                        # Don't inject the same follow-up twice
+                        already_injected = any(
+                            getattr(e, "bank_email_id", None) == template.get("email_id")
+                            for e in self._inbox
+                        )
+                        if already_injected:
+                            pass
+                        else:
+                            followup = Email(
+                            email_id               = len(self._inbox),
+                            sender                 = template["sender"],
+                            sender_domain          = template.get("sender_domain", "internal"),
+                            subject                = template["subject"],
+                            body                   = template["body"],
+                            sender_importance      = template["sender_importance"],
+                            base_priority          = min(10, current_email.base_priority + 2),
+                            estimated_response_time= self._sample_time_cost(template),
+                            is_followup            = True,
+                            parent_email_id        = current_email.email_id,
+                            received_at_timestep   = self._current_timestep,
+                        )
+                        followup.bank_email_id = template.get("email_id")
+                        insert_pos = min(
+                            self._current_email_index + 2,
+                            len(self._inbox)
+                        )
+                        self._inbox.insert(insert_pos, followup)
 
             info = {
                 "action":             "ignore",
@@ -394,28 +410,26 @@ class EmailTriageEnv:
 
     def _sample_time_cost(self, template: dict) -> int:
         """
-        Returns estimated_response_time for an email.
-        If the template has an explicit value, use it (capped at 180).
-        Otherwise, sample from distribution:
-            60% Quick      (5-15 min)
-            30% Deep Work  (30-60 min)
-            10% Black Hole (120 min)
+        Derives estimated_response_time from body length so the agent
+        can actually learn the proxy signal it's given in observations.
 
-        A VIP can get a Black Hole email. If the agent spends 2 hours on
-        the founder's coffee preference email, it earns a negative reward.
-        This forces the agent to read CONTENT, not just sender tier.
+        Buckets (with noise so it's learnable but not deterministic):
+            < 150 chars  → 5–15 min   (quick reply)
+            150–300 chars → 15–35 min  (standard)
+            300–500 chars → 35–70 min  (deep work)
+            > 500 chars  → 70–120 min  (black hole)
         """
-        if "estimated_response_time" in template:
-            return min(180, template["estimated_response_time"])
+        body_length = len(template.get("body", ""))
 
-        roll = random.random()
-        if roll < 0.6:
+        if body_length < 150:
             return random.randint(5, 15)
-        elif roll < 0.9:
-            return random.randint(30, 60)
+        elif body_length < 300:
+            return random.randint(15, 35)
+        elif body_length < 500:
+            return random.randint(35, 70)
         else:
-            return 120
-
+            return random.randint(70, 120)
+    
     def _load_email_bank(self) -> dict:
         """Load pre-written email templates from data/email_bank.json."""
         possible_paths = [

@@ -104,6 +104,7 @@ class Email(BaseModel):
         default=None,
         description="email_id of the original email if this is a follow-up"
     )
+    bank_email_id: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------

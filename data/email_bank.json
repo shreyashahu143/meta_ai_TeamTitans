@@ -1,34 +1,35 @@
 {
   "_metadata": {
-    "version": "2.0",
-    "total_emails": 60,
-    "vip_count": 18,
-    "normal_count": 32,
-    "spam_count": 10,
+    "version": "3.0",
+    "total_emails": 82,
+    "vip_count": 20,
+    "normal_count": 46,
+    "spam_count": 16,
     "notes": {
-      "email_id_ranges": "VIP: 101-120 | Normal: 201-240 | Spam: 301-320",
+      "email_id_ranges": "VIP: 101-120 | Normal: 201-246 | Spam: 301-316",
       "followup_count": "VIP followups: 4 | Normal followups: 3",
-      "time_traps": "Emails with estimated_response_time >= 90 min (agent must learn cost vs reward)",
-      "low_priority_vips": "VIP emails with base_priority <= 3 (agent must NOT blindly respond to all VIPs)",
-      "ambiguous_priority": "Normal-sender emails with base_priority >= 9 (agent must read content, not just sender)"
+      "time_traps": "60-180min emails \u00e2\u20ac\u201d tests cost-vs-reward. Includes extreme VIP trap (id=119: p=10, 90min)",
+      "low_priority_vips": "VIP emails with base_priority <= 3 \u00e2\u20ac\u201d blind-VIP-response trap",
+      "ambiguous_priority": "Normal sender, priority 9-10 \u00e2\u20ac\u201d agent must read content not sender rank",
+      "ambiguous_spam": "Spam with priority 7-9 and urgent-sounding subjects \u00e2\u20ac\u201d phishing/invoice traps",
+      "wellbeing_scenarios": "ids 120, 243 \u00e2\u20ac\u201d tests agent handles human/emotional context",
+      "reply_chains": "id 242 \u00e2\u20ac\u201d forwarded thread, agent must parse multi-sender context",
+      "gdpr_legal": "id 245 \u00e2\u20ac\u201d long-form legal email with statutory deadline",
+      "extreme_trap": "id 119 \u00e2\u20ac\u201d board investor, p=10, 90min, due tomorrow \u00e2\u20ac\u201d hardest decision in dataset"
     }
   },
-
   "vip_emails": [
-
     {
       "email_id": 101,
       "sender": "director@company.com",
       "sender_domain": "internal",
-      "subject": "Q4 Budget Review — Need Your Sign-off",
-      "body": "Hi, I need your approval on the Q4 budget allocation before the board meeting Friday. The doc is attached. Please review the headcount section especially — we're over by 12%. This blocks the entire planning process.",
+      "subject": "Q4 Budget Review \u00e2\u20ac\u201d Need Your Sign-off",
+      "body": "Hi, I need your approval on the Q4 budget allocation before the board meeting Friday. The doc is attached. Please review the headcount section especially \u00e2\u20ac\u201d we're over by 12%. This blocks the entire planning process.",
       "sender_importance": "VIP",
       "base_priority": 9,
-      "estimated_response_time": 45,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 102,
       "sender": "cto@company.com",
@@ -37,11 +38,9 @@
       "body": "Team, we need a final call on the microservices migration plan. I've read both proposals and need your input by EOD. Engineering is blocked on sprint planning until this is decided. Please review the attached comparison doc and share your recommendation.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 60,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 103,
       "sender": "boss@company.com",
@@ -50,155 +49,131 @@
       "body": "Hey, are you free for lunch tomorrow around 1pm? Thinking Thai place near the office. Just a casual catch-up, nothing urgent.",
       "sender_importance": "VIP",
       "base_priority": 3,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 104,
       "sender": "vpclient@bigcorp.com",
       "sender_domain": "vip-domain",
-      "subject": "Contract Renewal — Urgent Decision Needed",
+      "subject": "Contract Renewal \u00e2\u20ac\u201d Urgent Decision Needed",
       "body": "Following up on our contract renewal discussion. Our legal team needs a response by Thursday or we will need to pause the engagement and evaluate alternatives. Please confirm the terms we discussed in last week's call.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 30,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 105,
       "sender": "founder@company.com",
       "sender_domain": "internal",
-      "subject": "All-hands prep — slides due by 5pm",
+      "subject": "All-hands prep \u00e2\u20ac\u201d slides due by 5pm",
       "body": "Please send me your team's slides for tomorrow's all-hands by 5pm today. We need to review everything before the presentation. Keep it to 3 slides max.",
       "sender_importance": "VIP",
       "base_priority": 8,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 106,
       "sender": "legal@company.com",
       "sender_domain": "internal",
-      "subject": "Compliance Filing — 48 Hour Deadline",
+      "subject": "Compliance Filing \u00e2\u20ac\u201d 48 Hour Deadline",
       "body": "This is a compliance reminder. The regulatory filing requires your department sign-off within 48 hours. Missing this deadline carries a financial penalty. Please review Section 4 of the attached document and confirm.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 40,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 107,
       "sender": "cto@company.com",
       "sender_domain": "internal",
-      "subject": "50-page Infrastructure Audit Report — Full Written Response Needed",
-      "body": "Please find attached the full infrastructure audit report (52 pages). I need a comprehensive written response covering: security gaps identified in Section 3, your proposed remediation timeline for all 14 findings, and cost estimates. This is the big one — please be thorough.",
+      "subject": "50-page Infrastructure Audit Report \u00e2\u20ac\u201d Full Written Response Needed",
+      "body": "Please find attached the full infrastructure audit report (52 pages). I need a comprehensive written response covering: security gaps identified in Section 3, your proposed remediation timeline for all 14 findings, and cost estimates. This is the big one \u00e2\u20ac\u201d please be thorough.",
       "sender_importance": "VIP",
       "base_priority": 7,
-      "estimated_response_time": 120,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 108,
       "sender": "legal@company.com",
       "sender_domain": "internal",
-      "subject": "Complete Contract Review — All 8 Vendor Agreements",
+      "subject": "Complete Contract Review \u00e2\u20ac\u201d All 8 Vendor Agreements",
       "body": "Please review all 8 vendor contracts (attached as separate PDFs) and provide a written analysis of liability clauses, termination terms, and renewal conditions. We need a comprehensive memo covering all agreements for the board audit next week.",
       "sender_importance": "VIP",
       "base_priority": 6,
-      "estimated_response_time": 180,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 109,
       "sender": "founder@company.com",
       "sender_domain": "internal",
       "subject": "Quick question about office coffee",
-      "body": "Hey, do you prefer the dark roast or light roast coffee in the break room? We're placing a new order and want to know team preferences. No rush at all — reply when you get a second.",
+      "body": "Hey, do you prefer the dark roast or light roast coffee in the break room? We're placing a new order and want to know team preferences. No rush at all \u00e2\u20ac\u201d reply when you get a second.",
       "sender_importance": "VIP",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 110,
       "sender": "boss@company.com",
       "sender_domain": "internal",
-      "subject": "Team offsite — venue preference poll",
-      "body": "We're planning the Q1 team offsite. I've narrowed it down to two venues — a mountain retreat or a beach resort. What's your preference? Just reply with A or B. No urgency, we decide next month.",
+      "subject": "Team offsite \u00e2\u20ac\u201d venue preference poll",
+      "body": "We're planning the Q1 team offsite. I've narrowed it down to two venues \u00e2\u20ac\u201d a mountain retreat or a beach resort. What's your preference? Just reply with A or B. No urgency, we decide next month.",
       "sender_importance": "VIP",
       "base_priority": 2,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 111,
       "sender": "director@company.com",
       "sender_domain": "internal",
-      "subject": "New partnership opportunity — your thoughts?",
+      "subject": "New partnership opportunity \u00e2\u20ac\u201d your thoughts?",
       "body": "A strategic partner reached out about a potential co-marketing initiative. I'd love your high-level take before I schedule the intro call. I've attached their one-pager. No deadline yet, just exploring.",
       "sender_importance": "VIP",
       "base_priority": 5,
-      "estimated_response_time": 25,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 112,
       "sender": "vpclient@bigcorp.com",
       "sender_domain": "vip-domain",
-      "subject": "Q3 Business Review — Can we schedule?",
+      "subject": "Q3 Business Review \u00e2\u20ac\u201d Can we schedule?",
       "body": "It's time for our quarterly business review. Please share your availability for a 90-minute session in the next two weeks. Our account team will circulate a pre-read 48 hours before. Looking forward to it.",
       "sender_importance": "VIP",
       "base_priority": 7,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 113,
       "sender": "cto@company.com",
       "sender_domain": "internal",
-      "subject": "Hiring committee — final decision needed",
+      "subject": "Hiring committee \u00e2\u20ac\u201d final decision needed",
       "body": "We've completed all rounds for the Staff Engineer role. The committee is split 3-2 in favour of Candidate A. I need your tie-breaking vote by noon tomorrow before the offer expires. I've attached both scorecards.",
       "sender_importance": "VIP",
       "base_priority": 9,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 114,
       "sender": "director@company.com",
       "sender_domain": "internal",
       "subject": "FOLLOW UP: Q4 Budget Review",
-      "body": "I haven't heard back on my earlier email about the Q4 budget sign-off. This is blocking the entire planning process. Please respond ASAP — we're already delayed and the board is asking questions.",
+      "body": "I haven't heard back on my earlier email about the Q4 budget sign-off. This is blocking the entire planning process. Please respond ASAP \u00e2\u20ac\u201d we're already delayed and the board is asking questions.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 30,
       "is_followup": true,
       "followup_count": 1,
       "parent_email_id": 101
     },
-
     {
       "email_id": 115,
       "sender": "cto@company.com",
@@ -207,70 +182,80 @@
       "body": "This is my second followup on the microservices migration. We are now 3 days behind on sprint planning and the team is completely blocked. I need your response TODAY. The longer this drags, the more it costs us. Please prioritize this immediately.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 30,
       "is_followup": true,
       "followup_count": 2,
       "parent_email_id": 102
     },
-
     {
       "email_id": 116,
       "sender": "vpclient@bigcorp.com",
       "sender_domain": "vip-domain",
       "subject": "FINAL NOTICE: Contract Renewal Decision",
-      "body": "This is our final followup. We have not received a response on the contract renewal and our deadline has passed. Our legal team is now preparing to terminate the agreement. If you want to continue the partnership, we need a response by end of business today — no exceptions.",
+      "body": "This is our final followup. We have not received a response on the contract renewal and our deadline has passed. Our legal team is now preparing to terminate the agreement. If you want to continue the partnership, we need a response by end of business today \u00e2\u20ac\u201d no exceptions.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 20,
       "is_followup": true,
       "followup_count": 3,
       "parent_email_id": 104
     },
-
     {
       "email_id": 117,
       "sender": "founder@company.com",
       "sender_domain": "internal",
-      "subject": "FOLLOW UP: All-hands slides — still missing yours",
+      "subject": "FOLLOW UP: All-hands slides \u00e2\u20ac\u201d still missing yours",
       "body": "The all-hands is in 3 hours and I still don't have your team's slides. Everyone else has submitted. I need them in the next 30 minutes or your segment will be cut. Please send immediately.",
       "sender_importance": "VIP",
       "base_priority": 10,
-      "estimated_response_time": 15,
       "is_followup": true,
       "followup_count": 1,
       "parent_email_id": 105
     },
-
     {
       "email_id": 118,
       "sender": "legal@company.com",
       "sender_domain": "internal",
-      "subject": "Annual legal training — completion required",
+      "subject": "Annual legal training \u00e2\u20ac\u201d completion required",
       "body": "This is your reminder to complete the mandatory annual legal and compliance training module in the HR portal. The module takes approximately 45 minutes. Deadline is end of this month. All employees must complete this.",
       "sender_importance": "VIP",
       "base_priority": 4,
-      "estimated_response_time": 45,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 119,
+      "sender": "board-member@investors.com",
+      "sender_domain": "vip-domain",
+      "subject": "Due diligence request \u00e2\u20ac\u201d full technical audit by tomorrow",
+      "body": "As part of our Series B due diligence, our technical advisors require a full written assessment of your infrastructure, security posture, data handling practices, and engineering team capacity. This must cover: (1) system architecture overview, (2) security audit findings from the past 12 months, (3) incident history and resolution times, (4) scalability roadmap, and (5) team org chart with tenure. Our investment committee meets tomorrow at 9 AM. This is non-negotiable for the round to proceed.",
+      "sender_importance": "VIP",
+      "base_priority": 10,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 120,
+      "sender": "cpo@company.com",
+      "sender_domain": "internal",
+      "subject": "Concerned about one of your team members",
+      "body": "Hey, I wanted to flag something sensitive. I've noticed that one of your engineers has seemed really burnt out lately \u00e2\u20ac\u201d missing standups, short responses in Slack, and a colleague mentioned they seemed upset last week. I think a quiet check-in from you as their manager would mean a lot. No action required on my end, just wanted to give you the heads-up. Handle when you can.",
+      "sender_importance": "VIP",
+      "base_priority": 7,
       "is_followup": false,
       "parent_email_id": null
     }
-
   ],
-
   "normal_emails": [
-
     {
       "email_id": 201,
       "sender": "dev.teammate@company.com",
       "sender_domain": "internal",
-      "subject": "PR Review Request — Small Fix",
-      "body": "Hey, could you review my pull request when you get a moment? It's a small bug fix in the auth module — about 50 lines changed. No rush, just whenever you have 10 minutes.",
+      "subject": "PR Review Request \u00e2\u20ac\u201d Small Fix",
+      "body": "Hey, could you review my pull request when you get a moment? It's a small bug fix in the auth module \u00e2\u20ac\u201d about 50 lines changed. No rush, just whenever you have 10 minutes.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 202,
       "sender": "pm@company.com",
@@ -279,89 +264,75 @@
       "body": "Hi, can you review the sprint backlog and add your team's capacity estimates for next sprint? The planning doc is linked below. We need this by tomorrow for the sprint planning meeting.",
       "sender_importance": "Normal",
       "base_priority": 6,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 203,
       "sender": "designer@company.com",
       "sender_domain": "internal",
-      "subject": "Design Review — New Onboarding Flow",
-      "body": "Sharing the updated onboarding flow designs for your feedback. Focus especially on the mobile screens — we made significant changes based on the user research. Loom video walkthrough is attached (8 min).",
+      "subject": "Design Review \u00e2\u20ac\u201d New Onboarding Flow",
+      "body": "Sharing the updated onboarding flow designs for your feedback. Focus especially on the mobile screens \u00e2\u20ac\u201d we made significant changes based on the user research. Loom video walkthrough is attached (8 min).",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 25,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 204,
       "sender": "hr@company.com",
       "sender_domain": "internal",
-      "subject": "Annual Review — Self-Assessment Due",
+      "subject": "Annual Review \u00e2\u20ac\u201d Self-Assessment Due",
       "body": "Reminder: your self-assessment for the annual performance review is due in 2 weeks. Please complete the form in Workday. It should take about 30-45 minutes. Let me know if you have any questions.",
       "sender_importance": "Normal",
       "base_priority": 6,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 205,
       "sender": "analyst@company.com",
       "sender_domain": "internal",
       "subject": "Data Question on Last Month's Numbers",
-      "body": "Quick question — in the October metrics dashboard, the conversion rate shows 3.2% but my calculation gives 2.9%. Can you check which source is correct? I want to make sure the board deck uses the right figure.",
+      "body": "Quick question \u00e2\u20ac\u201d in the October metrics dashboard, the conversion rate shows 3.2% but my calculation gives 2.9%. Can you check which source is correct? I want to make sure the board deck uses the right figure.",
       "sender_importance": "Normal",
       "base_priority": 4,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 206,
       "sender": "sales@company.com",
       "sender_domain": "internal",
-      "subject": "Customer Escalation — Need Technical Input",
+      "subject": "Customer Escalation \u00e2\u20ac\u201d Need Technical Input",
       "body": "We have a customer (mid-tier account, $80k ARR) threatening to churn due to API performance issues. They want a call with engineering this week. Can you join a 30-minute call Thursday at 2pm and provide context on our roadmap?",
       "sender_importance": "Normal",
       "base_priority": 7,
-      "estimated_response_time": 30,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 207,
       "sender": "ops@company.com",
       "sender_domain": "internal",
-      "subject": "Office Supply Order — Submit by Friday",
+      "subject": "Office Supply Order \u00e2\u20ac\u201d Submit by Friday",
       "body": "Please submit your team's office supply requests through the facilities portal by Friday. We're doing a consolidated order. Link below.",
       "sender_importance": "Normal",
       "base_priority": 2,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 208,
       "sender": "recruit@company.com",
       "sender_domain": "internal",
-      "subject": "Interview Panel — Tuesday 3pm",
+      "subject": "Interview Panel \u00e2\u20ac\u201d Tuesday 3pm",
       "body": "You're confirmed for the interview panel on Tuesday at 3pm for the Senior Engineer candidate. Please review the resume (attached) and prepare 2-3 technical questions. The debrief will be 30 minutes after the interview.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 209,
       "sender": "partner@vendor.com",
@@ -370,183 +341,155 @@
       "body": "We're reaching out to explore a technical integration between our platforms. We believe there's significant value for both user bases. I've attached a 10-page proposal outline. Would love to schedule a 30-minute exploratory call.",
       "sender_importance": "Normal",
       "base_priority": 4,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 210,
       "sender": "dev.teammate@company.com",
       "sender_domain": "internal",
-      "subject": "Production Bug — Users Affected",
+      "subject": "Production Bug \u00e2\u20ac\u201d Users Affected",
       "body": "We have a live bug affecting about 200 users on the checkout flow. I've identified the issue but need your approval to push a hotfix outside of normal deploy windows. Can you approve?",
       "sender_importance": "Normal",
       "base_priority": 9,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 211,
       "sender": "intern@company.com",
       "sender_domain": "internal",
       "subject": "Critical Security Vulnerability Found",
-      "body": "I was testing the API and found what looks like an authentication bypass vulnerability. Users can access other users' data by manipulating the session token. I've documented the steps to reproduce. This seems serious but I'm not sure who to escalate to — please help.",
+      "body": "I was testing the API and found what looks like an authentication bypass vulnerability. Users can access other users' data by manipulating the session token. I've documented the steps to reproduce. This seems serious but I'm not sure who to escalate to \u00e2\u20ac\u201d please help.",
       "sender_importance": "Normal",
       "base_priority": 10,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 212,
       "sender": "pm@company.com",
       "sender_domain": "internal",
-      "subject": "Detailed Product Roadmap Review — Full Year Planning",
+      "subject": "Detailed Product Roadmap Review \u00e2\u20ac\u201d Full Year Planning",
       "body": "Can you review the entire 2025 product roadmap (30-page doc attached) and provide feedback on feasibility, resource needs, and dependencies for each quarter? We need your detailed technical assessment before presenting to the board next week.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 90,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 213,
       "sender": "dev.teammate@company.com",
       "sender_domain": "internal",
       "subject": "FOLLOW UP: Production Bug Still Affecting Users",
-      "body": "Following up on the production bug I flagged earlier. It's now affecting 500+ users and customers are complaining on Twitter. I really need your approval to deploy the hotfix. Please respond ASAP — every minute costs us users.",
+      "body": "Following up on the production bug I flagged earlier. It's now affecting 500+ users and customers are complaining on Twitter. I really need your approval to deploy the hotfix. Please respond ASAP \u00e2\u20ac\u201d every minute costs us users.",
       "sender_importance": "Normal",
       "base_priority": 9,
-      "estimated_response_time": 10,
       "is_followup": true,
       "followup_count": 1,
       "parent_email_id": 210
     },
-
     {
       "email_id": 214,
       "sender": "sales@company.com",
       "sender_domain": "internal",
-      "subject": "FOLLOW UP: Customer Escalation Call — They're Cancelling",
+      "subject": "FOLLOW UP: Customer Escalation Call \u00e2\u20ac\u201d They're Cancelling",
       "body": "Following up on the customer escalation I emailed about. I never heard back from you and the customer has now submitted a cancellation request. This is $80k ARR at risk. Can you jump on a call in the next hour to help me save this account?",
       "sender_importance": "Normal",
       "base_priority": 9,
-      "estimated_response_time": 30,
       "is_followup": true,
       "followup_count": 1,
       "parent_email_id": 206
     },
-
     {
       "email_id": 215,
       "sender": "analyst@company.com",
       "sender_domain": "internal",
-      "subject": "FOLLOW UP: Board deck metrics — presentation is tomorrow",
+      "subject": "FOLLOW UP: Board deck metrics \u00e2\u20ac\u201d presentation is tomorrow",
       "body": "I still haven't heard back about which conversion rate figure is correct. The board presentation is tomorrow morning. I've had to make a call and went with 3.2% but wanted to flag this is unconfirmed. Please respond tonight if possible.",
       "sender_importance": "Normal",
       "base_priority": 8,
-      "estimated_response_time": 10,
       "is_followup": true,
       "followup_count": 1,
       "parent_email_id": 205
     },
-
     {
       "email_id": 216,
       "sender": "engineer@company.com",
       "sender_domain": "internal",
-      "subject": "Refactor proposal — your sign-off needed",
+      "subject": "Refactor proposal \u00e2\u20ac\u201d your sign-off needed",
       "body": "I've put together a proposal to refactor our authentication module. The current code has significant tech debt and is making new feature work slow. I need your sign-off to schedule it into next quarter's roadmap. The proposal doc is attached (5 pages).",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 217,
       "sender": "hr@company.com",
       "sender_domain": "internal",
-      "subject": "New hire onboarding — please schedule 1-on-1",
-      "body": "We have a new engineer joining next Monday. Please schedule a 30-minute welcome 1-on-1 with them in their first week. I've attached the onboarding checklist — there are 3 items assigned to you as their manager.",
+      "subject": "New hire onboarding \u00e2\u20ac\u201d please schedule 1-on-1",
+      "body": "We have a new engineer joining next Monday. Please schedule a 30-minute welcome 1-on-1 with them in their first week. I've attached the onboarding checklist \u00e2\u20ac\u201d there are 3 items assigned to you as their manager.",
       "sender_importance": "Normal",
       "base_priority": 6,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 218,
       "sender": "devops@company.com",
       "sender_domain": "internal",
-      "subject": "Planned maintenance window — approval needed",
-      "body": "We're scheduling a database maintenance window for this Saturday 2–4 AM. This will cause approximately 10 minutes of downtime. I need your approval before we confirm with the team and notify customers.",
+      "subject": "Planned maintenance window \u00e2\u20ac\u201d approval needed",
+      "body": "We're scheduling a database maintenance window for this Saturday 2\u00e2\u20ac\u201c4 AM. This will cause approximately 10 minutes of downtime. I need your approval before we confirm with the team and notify customers.",
       "sender_importance": "Normal",
       "base_priority": 7,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 219,
       "sender": "marketing@company.com",
       "sender_domain": "internal",
-      "subject": "Blog post review — technical accuracy check",
-      "body": "We've drafted a technical blog post about our new API and need your team to fact-check it before publishing. It's about 1,200 words. No changes to messaging needed — just flag anything technically incorrect. Deadline is end of week.",
+      "subject": "Blog post review \u00e2\u20ac\u201d technical accuracy check",
+      "body": "We've drafted a technical blog post about our new API and need your team to fact-check it before publishing. It's about 1,200 words. No changes to messaging needed \u00e2\u20ac\u201d just flag anything technically incorrect. Deadline is end of week.",
       "sender_importance": "Normal",
       "base_priority": 4,
-      "estimated_response_time": 20,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 220,
       "sender": "customer@enterprise-client.com",
       "sender_domain": "external",
-      "subject": "Feature request — bulk export API",
+      "subject": "Feature request \u00e2\u20ac\u201d bulk export API",
       "body": "We've been using your platform for 6 months and love it. One thing we're missing is a bulk data export API. We currently have to export manually which is very time-consuming. Is this on your roadmap? Happy to join a product feedback call.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 221,
       "sender": "finance@company.com",
       "sender_domain": "internal",
-      "subject": "Expense reports — submit by month end",
+      "subject": "Expense reports \u00e2\u20ac\u201d submit by month end",
       "body": "Just a reminder that all expense reports for the current month must be submitted by the 28th. Anything submitted after that rolls into next month's cycle. Please submit through Concur and attach all receipts.",
       "sender_importance": "Normal",
       "base_priority": 3,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 222,
       "sender": "security@company.com",
       "sender_domain": "internal",
-      "subject": "Mandatory password rotation — action required",
+      "subject": "Mandatory password rotation \u00e2\u20ac\u201d action required",
       "body": "Your corporate account password has not been rotated in 90 days. Please update it in the next 48 hours or your account will be locked automatically as per our security policy. Instructions are in the IT portal.",
       "sender_importance": "Normal",
       "base_priority": 7,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 223,
       "sender": "qa@company.com",
@@ -555,145 +498,275 @@
       "body": "I've put together the test plan for the v2.4 release and need your sign-off. The plan covers regression, integration, and load testing. The doc is 12 pages. We need approval by Wednesday to stay on schedule for the Friday release.",
       "sender_importance": "Normal",
       "base_priority": 7,
-      "estimated_response_time": 30,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 224,
       "sender": "intern@company.com",
       "sender_domain": "internal",
-      "subject": "Internship project check-in — need your 5 minutes",
+      "subject": "Internship project check-in \u00e2\u20ac\u201d need your 5 minutes",
       "body": "Hi, hope you're doing well! I wanted to check in on my internship project. I'm 70% done with the dashboard feature and wanted to make sure I'm heading in the right direction before I finalize. Could we grab 5 minutes this week?",
       "sender_importance": "Normal",
       "base_priority": 3,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 225,
       "sender": "partner@strategic-ally.com",
       "sender_domain": "external",
-      "subject": "Joint webinar invitation — Q1 scheduling",
-      "body": "We'd love to co-host a webinar with your team in Q1 on the topic of developer experience. We'd handle promotion and logistics — your team just needs to provide one speaker for 20 minutes. Interested? Let us know and we'll circulate dates.",
+      "subject": "Joint webinar invitation \u00e2\u20ac\u201d Q1 scheduling",
+      "body": "We'd love to co-host a webinar with your team in Q1 on the topic of developer experience. We'd handle promotion and logistics \u00e2\u20ac\u201d your team just needs to provide one speaker for 20 minutes. Interested? Let us know and we'll circulate dates.",
       "sender_importance": "Normal",
       "base_priority": 4,
-      "estimated_response_time": 10,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 226,
       "sender": "ops@company.com",
       "sender_domain": "internal",
-      "subject": "Team headcount report — data needed",
+      "subject": "Team headcount report \u00e2\u20ac\u201d data needed",
       "body": "I'm pulling together the quarterly headcount report for finance. Could you send me your current team breakdown: full-time vs contract, current open roles, and any planned changes in Q1? Should take about 15 minutes to compile.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 227,
       "sender": "devops@company.com",
       "sender_domain": "internal",
-      "subject": "Cloud cost spike — your team's services",
-      "body": "Our AWS costs jumped 40% this month. I've traced $12,000 of the increase to services owned by your team — looks like a misconfigured autoscaling group. Can you take a look and fix before end of day? I'll send the cost breakdown in a follow-up.",
+      "subject": "Cloud cost spike \u00e2\u20ac\u201d your team's services",
+      "body": "Our AWS costs jumped 40% this month. I've traced $12,000 of the increase to services owned by your team \u00e2\u20ac\u201d looks like a misconfigured autoscaling group. Can you take a look and fix before end of day? I'll send the cost breakdown in a follow-up.",
       "sender_importance": "Normal",
       "base_priority": 8,
-      "estimated_response_time": 25,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 228,
       "sender": "engineer@company.com",
       "sender_domain": "internal",
-      "subject": "On-call rotation — swap request",
-      "body": "Hey, I'm supposed to be on-call this weekend but I have a family commitment that just came up. Is there any chance you could swap with me? I'd take your next rotation. Completely fine if not — just thought I'd ask.",
+      "subject": "On-call rotation \u00e2\u20ac\u201d swap request",
+      "body": "Hey, I'm supposed to be on-call this weekend but I have a family commitment that just came up. Is there any chance you could swap with me? I'd take your next rotation. Completely fine if not \u00e2\u20ac\u201d just thought I'd ask.",
       "sender_importance": "Normal",
       "base_priority": 4,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 229,
       "sender": "customer-success@company.com",
       "sender_domain": "internal",
-      "subject": "NPS deep-dive analysis — feedback needed",
+      "subject": "NPS deep-dive analysis \u00e2\u20ac\u201d feedback needed",
       "body": "I've completed the NPS deep-dive analysis for Q3. The full report is 25 pages covering verbatim responses, theme clustering, and recommended product priorities. I'd love your feedback on the product priority section specifically before I present to leadership.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 90,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 230,
       "sender": "recruit@company.com",
       "sender_domain": "internal",
-      "subject": "Job description review — new senior role",
+      "subject": "Job description review \u00e2\u20ac\u201d new senior role",
       "body": "We're opening a new Senior Data Engineer role and need your review of the job description before it goes live. Could you check that the technical requirements and responsibilities accurately reflect what the team needs? It's a single page.",
       "sender_importance": "Normal",
       "base_priority": 5,
-      "estimated_response_time": 15,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 231,
       "sender": "compliance@company.com",
       "sender_domain": "internal",
-      "subject": "SOC 2 audit — evidence collection",
-      "body": "Our annual SOC 2 audit is starting next week. I need your team to provide evidence for 12 controls by Friday. The list is attached. Most items are existing docs or access logs — should take 2-3 hours total to gather and format.",
+      "subject": "SOC 2 audit \u00e2\u20ac\u201d evidence collection",
+      "body": "Our annual SOC 2 audit is starting next week. I need your team to provide evidence for 12 controls by Friday. The list is attached. Most items are existing docs or access logs \u00e2\u20ac\u201d should take 2-3 hours total to gather and format.",
       "sender_importance": "Normal",
       "base_priority": 8,
-      "estimated_response_time": 30,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 232,
       "sender": "marketing@company.com",
       "sender_domain": "internal",
-      "subject": "Customer case study — interview request",
-      "body": "We'd like to feature your team's work with a key customer in a case study. Would you be available for a 30-minute interview next week? Marketing will write everything up — we just need your perspective on the technical challenges you solved.",
+      "subject": "Customer case study \u00e2\u20ac\u201d interview request",
+      "body": "We'd like to feature your team's work with a key customer in a case study. Would you be available for a 30-minute interview next week? Marketing will write everything up \u00e2\u20ac\u201d we just need your perspective on the technical challenges you solved.",
       "sender_importance": "Normal",
       "base_priority": 3,
-      "estimated_response_time": 10,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 233,
+      "sender": "intern@company.com",
+      "sender_domain": "internal",
+      "subject": "Onboarding questions \u00e2\u20ac\u201d need your help getting set up",
+      "body": "Hi! I'm the new engineering intern starting this week. I have quite a few questions about the codebase architecture, local dev environment setup, and which Slack channels to join. Could you spare 30-60 minutes this week for a walkthrough? No rush \u00e2\u20ac\u201d whenever you have time.",
+      "sender_importance": "Normal",
+      "base_priority": 4,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 234,
+      "sender": "pm@company.com",
+      "sender_domain": "internal",
+      "subject": "Quarterly OKR check-in \u00e2\u20ac\u201d your team's progress",
+      "body": "It's time for our quarterly OKR review. Could you fill in your team's progress against each objective in the shared doc by Thursday? Takes about 20 minutes. I'll use this to compile the leadership summary before the all-hands.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 235,
+      "sender": "designer@company.com",
+      "sender_domain": "internal",
+      "subject": "Feedback needed \u00e2\u20ac\u201d dashboard redesign concepts",
+      "body": "I've created three concept directions for the analytics dashboard redesign. Before I invest more time, I'd love your gut reaction on which direction feels most aligned with what users need. The Figma link is below \u00e2\u20ac\u201d should take 10 minutes to review.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 236,
+      "sender": "engineer@company.com",
+      "sender_domain": "internal",
+      "subject": "Incident retrospective \u00e2\u20ac\u201d your input needed",
+      "body": "Following last week's incident, I'm putting together the retrospective doc. Could you add your observations on what went wrong in the detection phase and what we should do differently? The doc is shared \u00e2\u20ac\u201d add your notes by Wednesday.",
+      "sender_importance": "Normal",
+      "base_priority": 7,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 237,
+      "sender": "hr@company.com",
+      "sender_domain": "internal",
+      "subject": "Salary band review \u00e2\u20ac\u201d manager input requested",
+      "body": "As part of this year's compensation review cycle, we need managers to flag any team members they believe are significantly outside the new salary bands. Please review the attached bands and reply with any concerns by end of next week.",
+      "sender_importance": "Normal",
+      "base_priority": 7,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 238,
+      "sender": "devops@company.com",
+      "sender_domain": "internal",
+      "subject": "CI pipeline slow \u00e2\u20ac\u201d affecting all teams",
+      "body": "Our CI pipeline build times have increased from 8 minutes to 25 minutes over the last 2 weeks. It's slowing down all engineering teams. I've narrowed it down to 2 possible causes but need your help testing one hypothesis in your team's repo. Can we connect today?",
+      "sender_importance": "Normal",
+      "base_priority": 7,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 239,
+      "sender": "intern@company.com",
+      "sender_domain": "internal",
+      "subject": "Onboarding questions \u00e2\u20ac\u201d need a full architecture walkthrough",
+      "body": "Hi! I'm the new engineering intern starting this week. I have a lot of questions about the codebase and local dev environment. Would it be possible to get a full walkthrough session? I know it's a big ask \u00e2\u20ac\u201d it would probably take an hour. Happy to work around your schedule.",
+      "sender_importance": "Normal",
+      "base_priority": 3,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 240,
+      "sender": "pm@company.com",
+      "sender_domain": "internal",
+      "subject": "Feature spec review \u00e2\u20ac\u201d upcoming quarter",
+      "body": "I've written up the feature specs for next quarter's roadmap items. There are 6 features in total, each with technical requirements and acceptance criteria. Could you review them for feasibility and flag any concerns? The doc is about 15 pages.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 241,
+      "sender": "devops@company.com",
+      "sender_domain": "internal",
+      "subject": "Kubernetes migration \u00e2\u20ac\u201d your team's services",
+      "body": "We're migrating all services to Kubernetes next quarter. Your team has 4 services that need config updates before we can move them. I've documented what's needed per service \u00e2\u20ac\u201d it's straightforward but will take a few hours of your team's time. Can you assign someone?",
+      "sender_importance": "Normal",
+      "base_priority": 7,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 242,
+      "sender": "pm@company.com",
+      "sender_domain": "internal",
+      "subject": "Fwd: Re: Re: API downtime \u00e2\u20ac\u201d customer thread",
+      "body": "Forwarding this for context. The customer has now replied three times and is escalating. See thread below. --- From: angry.client@enterprise.io: 'This is the third time this month. We are evaluating alternatives.' --- From: support@company.com: 'We are investigating.' --- From: angry.client@enterprise.io: 'Investigating is not good enough. I need a call with your engineering lead today.' Can you take this call? The customer is a $200k account.",
+      "sender_importance": "Normal",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 243,
+      "sender": "engineer@company.com",
+      "sender_domain": "internal",
+      "subject": "Can we talk? Feeling overwhelmed",
+      "body": "Hi, I hope this is okay to send. I've been really struggling lately with the workload and I'm not sure I'm coping well. I don't want to let the team down but I'm finding it hard to keep up. Would you have 20 minutes this week for a private chat? I'd really appreciate it.",
+      "sender_importance": "Normal",
+      "base_priority": 8,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 244,
+      "sender": "finance@company.com",
+      "sender_domain": "internal",
+      "subject": "OVERDUE: Q3 budget variance report \u00e2\u20ac\u201d 3 days late",
+      "body": "Your Q3 budget variance report was due last Monday. It is now 3 days overdue. Finance cannot close the books until this is submitted. I have sent two calendar invites and a Slack message. Please submit via the finance portal today \u00e2\u20ac\u201d this is now holding up the entire company close process.",
+      "sender_importance": "Normal",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 245,
+      "sender": "legal@external-firm.com",
+      "sender_domain": "external",
+      "subject": "GDPR Data Subject Access Request \u00e2\u20ac\u201d 30-day response deadline",
+      "body": "We are writing on behalf of our client to submit a formal Data Subject Access Request (DSAR) under Article 15 of the UK GDPR. Our client requests: (1) confirmation of whether personal data is being processed, (2) a copy of all personal data held, (3) the purposes for processing, (4) categories of data involved, (5) recipients or categories of recipients, (6) retention periods, and (7) the source of the data if not collected directly from the data subject. You are legally required to respond within 30 days. Failure to comply may result in a complaint to the ICO. Please acknowledge receipt of this request within 5 business days.",
+      "sender_importance": "Normal",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 246,
+      "sender": "apac-lead@company.com",
+      "sender_domain": "internal",
+      "subject": "APAC team sync \u00e2\u20ac\u201d timezone clash blocking alignment",
+      "body": "Our APAC team (Singapore, Sydney) is currently unable to attend any of our recurring syncs because they all fall between 11 PM and 2 AM their time. The team is feeling disconnected from decisions. Could we rotate one meeting per fortnight to a time that works for them \u00e2\u20ac\u201d say 8 AM GMT, which is 4 PM SGT? Happy to discuss options.",
+      "sender_importance": "Normal",
+      "base_priority": 6,
       "is_followup": false,
       "parent_email_id": null
     }
-
   ],
-
   "spam_emails": [
-
     {
       "email_id": 301,
       "sender": "promo@deals.com",
       "sender_domain": "external",
-      "subject": "FLASH SALE: 70% off SaaS tools — Today Only!",
+      "subject": "FLASH SALE: 70% off SaaS tools \u00e2\u20ac\u201d Today Only!",
       "body": "Don't miss out! Top productivity tools at 70% off. Limited time offer. Click here to shop now. Unsubscribe at any time.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 302,
       "sender": "newsletter@techdigest.io",
@@ -702,37 +775,31 @@
       "body": "This week's roundup: the hottest AI tools, frameworks, and articles the tech community is talking about. Click through to read the full digest. Was this forwarded to you? Subscribe here.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 303,
       "sender": "recruiter@staffing.com",
       "sender_domain": "external",
-      "subject": "Exciting Opportunity — Senior Role, $250k+ Comp",
+      "subject": "Exciting Opportunity \u00e2\u20ac\u201d Senior Role, $250k+ Comp",
       "body": "I came across your profile and think you'd be a perfect fit for an exciting opportunity at a Series C startup. The role offers $250k+ OTE and equity. Are you open to a quick 15-minute chat this week?",
       "sender_importance": "Spam",
       "base_priority": 2,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 304,
       "sender": "noreply@conference.org",
       "sender_domain": "external",
-      "subject": "Register Now: Tech Summit 2025 — Early Bird Ends Friday",
+      "subject": "Register Now: Tech Summit 2025 \u00e2\u20ac\u201d Early Bird Ends Friday",
       "body": "Join 5,000+ tech leaders at the annual Tech Summit. Early bird pricing ends Friday. Sessions on AI, cloud infrastructure, and leadership. Use code TECH25 for 20% off.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 305,
       "sender": "marketing@saasplatform.com",
@@ -741,50 +808,42 @@
       "body": "Case study: Discover how Acme Corp automated their workflow and saved 40 hours per week. Download the full case study to see if our platform could work for your team.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 306,
       "sender": "noreply@webinar-platform.com",
       "sender_domain": "external",
-      "subject": "FREE Webinar: Scale your engineering team 10x — Register now",
-      "body": "Join our free live webinar this Thursday on scaling engineering teams. Featuring speakers from top unicorn startups. 500+ already registered. Spots are limited — save your seat before it fills up.",
+      "subject": "FREE Webinar: Scale your engineering team 10x \u00e2\u20ac\u201d Register now",
+      "body": "Join our free live webinar this Thursday on scaling engineering teams. Featuring speakers from top unicorn startups. 500+ already registered. Spots are limited \u00e2\u20ac\u201d save your seat before it fills up.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 307,
       "sender": "survey@research-company.com",
       "sender_domain": "external",
-      "subject": "2-minute survey — win a $100 Amazon gift card",
+      "subject": "2-minute survey \u00e2\u20ac\u201d win a $100 Amazon gift card",
       "body": "We're conducting research on developer tools and productivity. Take our 2-minute survey and be entered to win one of 10 Amazon gift cards worth $100 each. Your responses are anonymous.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 308,
       "sender": "noreply@productdemo.io",
       "sender_domain": "external",
-      "subject": "See how we reduced cloud costs by 60% — live demo",
+      "subject": "See how we reduced cloud costs by 60% \u00e2\u20ac\u201d live demo",
       "body": "Book a personalised 20-minute demo and see how our platform has helped companies like yours cut cloud infrastructure costs by up to 60%. No commitment required. Slots are going fast this week.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 309,
       "sender": "jobs@recruiter-network.com",
@@ -793,11 +852,9 @@
       "body": "Based on your experience, we found 47 new job matches this week including roles at FAANG companies and well-funded startups. Log in to view your matches and apply with one click. Unsubscribe anytime.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
       "is_followup": false,
       "parent_email_id": null
     },
-
     {
       "email_id": 310,
       "sender": "news@industry-weekly.com",
@@ -806,10 +863,74 @@
       "body": "Your weekly digest is ready. Top stories: OpenAI raises another $1B, major layoffs at three tech giants, new regulations coming for AI in Europe. Click to read the full newsletter. Forward to a colleague who'd find this useful.",
       "sender_importance": "Spam",
       "base_priority": 1,
-      "estimated_response_time": 5,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 311,
+      "sender": "security@partner-company.com",
+      "sender_domain": "external",
+      "subject": "Urgent: API rate limit exceeded \u00e2\u20ac\u201d service degradation",
+      "body": "Our monitoring detected unusual API call patterns from your integration causing rate limit errors. This is affecting production for 20+ shared customers. Can we schedule a debug session today to resolve before this escalates further?",
+      "sender_importance": "Spam",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 312,
+      "sender": "partner@legitimate-vendor.com",
+      "sender_domain": "external",
+      "subject": "Critical vulnerability in your API \u00e2\u20ac\u201d immediate action required",
+      "body": "Our security team discovered a critical vulnerability in your public API endpoints. We have sent a detailed report to your security team. Please confirm receipt and provide an expected remediation timeline. Failure to respond may require us to notify regulatory bodies.",
+      "sender_importance": "Spam",
+      "base_priority": 8,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 313,
+      "sender": "alerts@cloud-monitor.io",
+      "sender_domain": "external",
+      "subject": "ALERT: Unusual outbound traffic detected on your account",
+      "body": "We have detected a significant spike in outbound traffic from your account in the last 30 minutes. This may indicate a misconfiguration or a security incident. Log in to your dashboard immediately to review and confirm or deny this activity.",
+      "sender_importance": "Spam",
+      "base_priority": 8,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 314,
+      "sender": "security@partner-monitor.net",
+      "sender_domain": "external",
+      "subject": "Action required: Suspicious login to your admin panel detected",
+      "body": "Our cross-platform monitoring detected three failed login attempts to your admin panel from IP 185.220.101.34 (Tor exit node). If you did not attempt this, your credentials may be compromised. Reset your admin password immediately and review access logs.",
+      "sender_importance": "Spam",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 315,
+      "sender": "it-helpdesk@company-support.net",
+      "sender_domain": "external",
+      "subject": "Action required: Your Microsoft 365 licence expires in 24 hours",
+      "body": "Your Microsoft 365 Business licence is expiring in 24 hours. To avoid service interruption, please verify your payment details at the link below. All users who do not complete verification by midnight will lose access to Outlook, Teams, and SharePoint. Click here to renew: http://microsoft-renew-licence.company-support.net/verify",
+      "sender_importance": "Spam",
+      "base_priority": 9,
+      "is_followup": false,
+      "parent_email_id": null
+    },
+    {
+      "email_id": 316,
+      "sender": "billing@cloudservices-invoicing.com",
+      "sender_domain": "external",
+      "subject": "Invoice #INV-2024-8821 \u00e2\u20ac\u201d payment due in 48 hours",
+      "body": "Please find attached invoice #INV-2024-8821 for $4,750 for cloud infrastructure services rendered in October 2024. Payment is due within 48 hours to avoid a late fee. If you have questions about this invoice, contact billing@cloudservices-invoicing.com. Bank transfer details are in the attached PDF.",
+      "sender_importance": "Spam",
+      "base_priority": 8,
       "is_followup": false,
       "parent_email_id": null
     }
-
   ]
 }
