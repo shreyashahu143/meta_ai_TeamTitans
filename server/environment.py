@@ -53,6 +53,8 @@ from models import (
 
 DEFAULT_TIME_BUDGET         = 480       # 8-hour workday in minutes
 INITIAL_RELATIONSHIP_HEALTH = 75.0     # All senders start at 75/100
+IGNORE_READING_TIME_FACTOR  = 0.2      # Reading an email before ignoring costs 20% of response time
+MIN_IGNORE_TIME             = 2        # Minimum 2 minutes to read any email
 
 
 class EmailTriageEnv:
@@ -67,12 +69,13 @@ class EmailTriageEnv:
         2. Time budget runs out (time_budget_remaining <= 0)   — forced end
     """
 
-    def __init__(self, task_config: Optional[dict] = None):
+    def __init__(self, task_config: Optional[dict] = None, seed: Optional[int] = None):
         """
         Args:
             task_config: Dict from tasks/task_X.json.
                          Controls num_emails, distribution, time_budget.
                          If None, uses Task 1 defaults.
+            seed: Random seed for reproducibility.
         """
         self.task_config = task_config or {
             "num_emails":    20,
@@ -81,6 +84,10 @@ class EmailTriageEnv:
             "spam_count":    5,
             "time_budget":   DEFAULT_TIME_BUDGET,
         }
+
+        # Set random seed if provided
+        if seed is not None:
+            random.seed(seed)
 
         # Internal state — private, only exposed via state() deep copy
         self._inbox: List[Email] = []
@@ -186,7 +193,7 @@ class EmailTriageEnv:
         current_email = self._inbox[self._current_email_index]
         relationship  = self._relationships[current_email.sender]
 
-        # ------ Calculate reward ------
+        # ------ Calculate reward and time cost ------
         if action == Action.RESPOND:
             reward, time_cost = self._reward_respond(current_email, relationship)
 
@@ -207,58 +214,64 @@ class EmailTriageEnv:
             }
 
         else:  # IGNORE
-            reward  = self._reward_ignore(current_email, relationship)
-            penalty = RELATIONSHIP_CONFIG[current_email.sender_importance]["ignore_penalty"]
+            reward = self._reward_ignore(current_email, relationship)
 
-            # Degrade relationship health
-            relationship.health = max(0.0, relationship.health + penalty)  # penalty is negative
+            # Add time cost for reading the email before ignoring
+            reading_cost = max(MIN_IGNORE_TIME, int(current_email.estimated_response_time * IGNORE_READING_TIME_FACTOR))
+            self._time_budget_remaining -= reading_cost
+            self._total_time_spent      += reading_cost
 
-            # Track ignore escalation
-            sender = current_email.sender
-            self._ignored_senders[sender] = self._ignored_senders.get(sender, 0) + 1
-            current_email.times_ignored             += 1
-            current_email.sender_urgency_multiplier += 0.5
+            # Apply relationship penalty (if not spam)
+            if current_email.sender_importance != "Spam":
+                penalty = RELATIONSHIP_CONFIG[current_email.sender_importance]["ignore_penalty"]
+                relationship.health = max(0.0, relationship.health + penalty)  # penalty is negative
 
-            # Extra repeat-ignore penalty
-            if self._ignored_senders[sender] > 1:
-                relationship.health = max(0.0, relationship.health - 10)
+                # Track ignore escalation (only for non-spam)
+                sender = current_email.sender
+                self._ignored_senders[sender] = self._ignored_senders.get(sender, 0) + 1
+                current_email.times_ignored             += 1
+                current_email.sender_urgency_multiplier += 0.5
 
-            # Mark sender as angry and inject follow-up if one exists in bank
-            if current_email.sender_importance in ("VIP", "Normal"):
-                relationship.is_angry = True
+                # Extra repeat-ignore penalty
+                if self._ignored_senders[sender] > 1:
+                    relationship.health = max(0.0, relationship.health - 10)
 
-                # Only inject one follow-up per original email (not per follow-up)
-                # This prevents infinite chains while keeping the dynamic mechanic
-                already_has_followup = any(
-                    e.parent_email_id == current_email.email_id
-                    for e in self._inbox
-                )
+                # Mark sender as angry and inject follow-up (only for VIP/Normal, and not already a follow-up)
+                if current_email.sender_importance in ("VIP", "Normal"):
+                    relationship.is_angry = True
 
-                if not already_has_followup:
-                    followup = Email(
-                        email_id                = len(self._inbox),
-                        sender                  = current_email.sender,
-                        sender_domain           = current_email.sender_domain,
-                        subject                 = f"FOLLOW UP: {current_email.subject}",
-                        body                    = (
-                            f"I still need a response on my previous email:\n\n"
-                            f"---\n{current_email.body[:500]}\n---\n\n"
-                            f"Please reply as soon as possible."
-                        ),
-                        sender_importance       = current_email.sender_importance,
-                        base_priority           = min(10, current_email.base_priority + 2),
-                        estimated_response_time = max(5, current_email.estimated_response_time // 2),
-                        is_followup             = True,
-                        parent_email_id         = current_email.email_id,
-                        received_at_timestep    = self._current_timestep,
-                    )
-                    insert_pos = min(self._current_email_index + 2, len(self._inbox))
-                    self._inbox.insert(insert_pos, followup)
+                    # Prevent infinite follow-up chains: only inject if current email is not itself a follow-up
+                    if not current_email.is_followup:
+                        already_has_followup = any(
+                            e.parent_email_id == current_email.email_id
+                            for e in self._inbox
+                        )
+                        if not already_has_followup:
+                            followup = Email(
+                                email_id                = len(self._inbox),
+                                sender                  = current_email.sender,
+                                sender_domain           = current_email.sender_domain,
+                                subject                 = f"FOLLOW UP: {current_email.subject}",
+                                body                    = (
+                                    f"I still need a response on my previous email:\n\n"
+                                    f"---\n{current_email.body[:500]}\n---\n\n"
+                                    f"Please reply as soon as possible."
+                                ),
+                                sender_importance       = current_email.sender_importance,
+                                base_priority           = min(10, current_email.base_priority + 2),
+                                estimated_response_time = max(5, current_email.estimated_response_time // 2),
+                                is_followup             = True,
+                                parent_email_id         = current_email.email_id,
+                                received_at_timestep    = self._current_timestep,
+                            )
+                            insert_pos = min(self._current_email_index + 2, len(self._inbox))
+                            self._inbox.insert(insert_pos, followup)
 
             info = {
                 "action":             "ignore",
-                "ignore_count":       self._ignored_senders.get(sender, 0),
-                "relationship_delta": penalty,
+                "time_cost":          reading_cost,
+                "ignore_count":       self._ignored_senders.get(current_email.sender, 0) if current_email.sender_importance != "Spam" else 0,
+                "relationship_delta": RELATIONSHIP_CONFIG[current_email.sender_importance]["ignore_penalty"] if current_email.sender_importance != "Spam" else 0,
                 "reward":             reward,
             }
 
@@ -270,19 +283,19 @@ class EmailTriageEnv:
         time_up     = self._time_budget_remaining <= 0
         done        = inbox_empty or time_up
 
-        # Sunset penalty — time ran out, emails remain
-        if done and time_up and not inbox_empty:
-            sunset_penalty     = self._calculate_sunset_penalty()
-            reward            += sunset_penalty
-            info["sunset_penalty"] = sunset_penalty
+        # End-of-episode adjustments (mutually exclusive)
+        original_budget = self.task_config.get("time_budget", DEFAULT_TIME_BUDGET)
 
-        # Time bonus — cleared entire inbox before time ran out
-        if done and inbox_empty:
-            original_budget   = self.task_config.get("time_budget", DEFAULT_TIME_BUDGET)
-            time_ratio        = self._time_budget_remaining / original_budget
-            time_bonus        = round(time_ratio * 10, 4)
-            reward           += time_bonus
-            info["time_bonus"]     = time_bonus
+        if done:
+            if time_up and not inbox_empty:
+                sunset_penalty = self._calculate_sunset_penalty()
+                reward += sunset_penalty
+                info["sunset_penalty"] = sunset_penalty
+            elif inbox_empty:
+                time_ratio = self._time_budget_remaining / original_budget
+                time_bonus = round(time_ratio * 10, 4)
+                reward += time_bonus
+                info["time_bonus"] = time_bonus
 
         next_obs = self._build_final_observation() if done else self._build_observation()
 
