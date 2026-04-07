@@ -1,165 +1,279 @@
 # 📧 Email Triage RL Environment
 
-> **Meta AI Hackathon — Team Titans**  
-> An OpenEnv-compatible reinforcement learning environment for intelligent email inbox management.
+### Team Titans — Meta AI Hackathon Submission
 
 ---
 
-## ✨ Overview
+## 🧠 What Problem Are We Solving?
 
-The **Email Triage RL Environment** transforms chaotic email inboxes into a rich, sequential decision-making problem for Reinforcement Learning agents.
+Most email management tools rely on **static priority labels** — simple scores that never change. But real-world inboxes are **dynamic, sequential decision-making environments** where every action has downstream consequences.
 
-Instead of static priority labels, the agent must learn to make optimal triage decisions while balancing **limited time**, **varying action costs**, and **decaying sender relationships** — mirroring real-world email challenges.
-
-Fully compliant with **Meta OpenEnv** specification and built to challenge frontier LLMs like Qwen/Qwen2.5-72B-Instruct.
-
----
-
-## 🧠 The Problem We’re Solving
-
-Most email management tools rely on **static priority scores** that never change. They completely ignore two critical real-world blind spots:
+Current systems miss two critical blind spots:
 
 **⚡ Action Cost Asymmetry**  
-Not every email costs the same time and effort.  
-A quick “Got it” reply takes ~5 minutes, while reviewing a 50-page report can take up to 3 hours.  
+Not every email costs the same time. A quick "Got it" takes 2 minutes; reviewing an 8-vendor contract audit takes 3 hours.  
 
-The intelligent agent must learn to ask:  
-**“Is the expected reward of handling this email worth its true time cost right now?”**
+An intelligent agent must ask:  
+*"Is the expected reward worth the actual time cost right now?"*
 
 **👥 Sender Relationship Decay**  
-The cost of ignoring someone is not fixed — it **compounds** over time.  
-Repeated inaction on messages from your boss or key stakeholders:
+Ignoring someone is not a one-time cost — it **compounds**. Ignore your boss once: tolerable. Three times: they're angry and sending escalating follow-ups.  
 
-- Progressively degrades relationship health (e.g., 75 → 55 → 35 → 0)
-- Triggers escalating follow-up emails injected directly into the inbox
-- Reduces the long-term value of future interactions
+The agent must learn that relationship damage is an investment, not a fixed fee.
 
 ---
 
-## 🚀 Key Features
+## 🏗️ Architecture (The Restaurant Analogy)
 
-- **Partial Observability**: Agent sees `email_length` (proxy) but not the hidden actual response time
-- **Learnable Cost Model**: Deterministic mapping from email length → time cost (no random noise)
-- **Dynamic Relationship Tracking**: Health decays on ignore, improves on respond
-- **VIP Follow-up Escalation**: Ignored VIPs generate increasingly urgent follow-ups
-- **Time Budget & Sunset Penalty**: Real pressure — you cannot answer everything
-- **3 Progressive Difficulty Levels**: Easy → Medium → Hard
+```
+OpenEnv = A Restaurant
+  server/environment.py ← The Kitchen (All game rules live here)
+  server/app.py         ← The Pass (FastAPI wrapper, no logic)
+  client.py             ← The Waiter (Moves data between AI and Kitchen)
+  models.py             ← The Menu (Type-safe contracts for everything)
+  inference.py          ← The Customer (The AI agent making decisions)
+  grader.py             ← The Food Critic (Scores how well the AI did)
+  data/email_bank.json  ← The Ingredients (60 pre-written email templates)
+```
 
-### Observation Space (One email at a time)
-- `email_id`, `sender`, `subject`, `body`
-- `sender_importance` (VIP / Normal / Spam)
-- `email_length` — observable proxy for cost
-- `relationship_score` (0–100)
-- `time_budget_remaining`, `emails_remaining`
+### Request Flow
 
-### Action Space (Discrete)
-- `0` → IGNORE  
-- `1` → RESPOND
-
----
-
-## ✅ Success Criteria
-
-### Minimum Viable Product
-- [ ] `reset()` returns a valid state with 15–20 emails
-- [ ] `step()` returns correct `(observation, reward, terminated, truncated, info)` tuple
-- [ ] Relationship health correctly degrades on ignore and improves on respond
-- [ ] Task 1 runs end-to-end without errors
-- [ ] Grader produces a normalized score between 0.0 and 1.0
-
-### Stretch Goals
-- [ ] All 3 tasks fully implemented and tested
-- [ ] Follow-up email escalation with “angry VIP” logic
-- [ ] Live demo deployed on Hugging Face Spaces
-- [ ] Sunset penalty and time bonus applied correctly
-
----
-
-## 📁 Project Structure
-
-```bash
-meta_ai_TeamTitans/
-├── inference.py              # Main LLM agent
-├── grader.py                 # Scoring logic for 3 tasks
-├── client.py                 # HTTP client for environment
-├── models.py                 # Pydantic data models
-├── train_agents.py           # Baseline agents (SMART / MEDIUM / DUMB)
-├── server/
-│   ├── environment.py        # Core RL environment logic
-│   └── app.py                # FastAPI server
-├── data/
-│   └── email_bank.json
-├── tasks/
-│   ├── task_1_easy.json
-│   ├── task_2_medium.json
-│   └── task_3_hard.json
-├── openenv.yaml
-├── Dockerfile
-├── validate-submission.sh
-└── requirements.txt
-
-🏗️ Architecture
-Think of the system as a restaurant:
-
-server/environment.py → Kitchen (core game logic)
-server/app.py         → Pass (FastAPI HTTP server)
-client.py             → Waiter (bridge between agent and server)
-inference.py          → Customer (LLM decision maker)
-grader.py             → Food Critic (evaluator)
-
-Request Flow:
+```
 inference.py → client.py → POST /step → server/app.py → environment.py
+     ↑
+     └──────────────── StepResponse (obs, reward, done, info) ─────────┘
+```
 
-📊 Tasks Overview
+---
 
-TaskDifficultyEmailsTime BudgetMain FocusScoring Weights1Easy20480 minBasic prioritization0.4 eff + 0.6 rel2Medium25420 minVIP relationship tracking0.5 pri + 0.5 VIP3Hard30360 minFull time & relationship management0.3 eff + 0.4 rel + 0.3 pri
+## 📁 File Structure
 
-🧪 Agent Baselines
-Run python train_agents.py to compare three baselines:
+```
+meta_ai_TeamTitans/
+│
+├── inference.py          ← LLM agent (OpenAI client, mandatory per spec)
+├── client.py             ← HTTP client connecting agent ↔ server
+├── models.py             ← All data types (Email, State, Observation, Action)
+├── grader.py             ← Scoring for Tasks 1, 2, 3
+├── requirements.txt      ← Python dependencies
+├── openenv.yaml          ← OpenEnv framework manifest
+├── Dockerfile            ← Container (Python 3.11, port 7860)
+├── README.md             ← This file
+├── validate-submission.sh ← Pre-submission validation script
+│
+├── server/
+│   ├── environment.py    ← Core RL logic: reset(), step(), state()
+│   └── app.py            ← FastAPI endpoints: /reset, /step, /state, /health
+│
+├── data/
+│   └── email_bank.json   ← 60 email templates (18 VIP, 32 Normal, 10 Spam)
+│
+├── tasks/
+│   ├── task_1_easy.json  ← 20 emails, 480 min budget
+│   ├── task_2_medium.json← 25 emails, 420 min budget, VIP focus
+│   └── task_3_hard.json  ← 30 emails, 360 min budget, full pressure
+│
+└── tests/
+    ├── test_environment.py ← Unit tests for environment logic
+    ├── test_client.py      ← Integration tests (requires running server)
+    └── test_grader.py      ← Unit tests for scoring functions
+```
 
-SMART — VIP-first, cost-aware → Scores: ~0.78 / 0.82 / 0.71
-MEDIUM — Partial random on Normal → Scores: ~0.68 / 0.65 / 0.58
-DUMB — Always ignore → Scores: ~0.42 / 0.38 / 0.35
+---
 
+## 🐍 Setup — Python 3.11 with venv
 
-🚀 Getting Started
-Prerequisites
+> **Required Python version: 3.11**  
+> Check what you have: `python --version` or `py -0` on Windows.
 
-Python 3.11+
+### Step 1 — Create the virtual environment
+```bash
+# macOS / Linux
+python3.11 -m venv venv
+
+# Windows (PowerShell)
+py -3.11 -m venv venv
+```
+
+### Step 2 — Activate it
+```bash
+# macOS / Linux
+source venv/bin/activate
+
+# Windows PowerShell
+venv\Scripts\Activate.ps1
+
+# Windows Command Prompt
+venv\Scripts\activate.bat
+```
+
+> ⚠️ **Windows permissions error?** Run this once:
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
+### Step 3 — Install dependencies
+```bash
 pip install -r requirements.txt
+```
 
-1. Start the Server
-Bashuvicorn server.app:app --host 0.0.0.0 --port 7860 --reload
-2. Quick Smoke Test
-Bashpython test_agent.py
-3. Run the LLM Agent
-Bash# Task 1
-python inference.py
+### Step 4 — Set environment variables
 
-# Task 2
+Create a `.env` file in the project root (never commit this file):
+
+```env
+HF_TOKEN=your_huggingface_token_here
+API_BASE_URL=https://router.huggingface.co/v1
+MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+TASK_ID=1
+ENV_SERVER_URL=http://localhost:7860
+```
+
+### Step 5 — Verify
+```bash
+python --version          # Should show Python 3.11.x
+pip list                  # Should show fastapi, uvicorn, pydantic, etc.
+```
+
+> ⚠️ **Always activate the venv before running any file in this project.**
+
+---
+
+## 🚀 Running the Project
+
+### Option A — Run locally (recommended for development)
+
+**Terminal 1: Start the server**
+```bash
+source venv/bin/activate        # macOS/Linux
+# venv\Scripts\Activate.ps1     # Windows
+cd server/
+uvicorn app:app --host 0.0.0.0 --port 7860 --reload
+```
+
+**Terminal 2: Run the agent**
+```bash
+source venv/bin/activate
+python inference.py             # Runs task defined by TASK_ID
+```
+
+To run specific tasks:
+```bash
+TASK_ID=1 python inference.py
 TASK_ID=2 python inference.py
-
-# Task 3  
 TASK_ID=3 python inference.py
-Docker Support
-Bashdocker build -t email-triage-env .
+```
+
+### Option B — Run with Docker
+```bash
+docker build -t email-triage-env .
 docker run -p 7860:7860 --env-file .env email-triage-env
+```
 
-📋 OpenEnv Compliance
+### Test the API manually
+```bash
+curl http://localhost:7860/health
+curl -X POST http://localhost:7860/reset
+curl -X POST http://localhost:7860/step -H "Content-Type: application/json" -d '{"action": 1}'
+```
 
-✅ reset() / step() endpoints implemented
-✅ openenv.yaml present and valid
-✅ 3 distinct tasks with different scoring
-✅ Proper [START], [STEP], [END] logging
-✅ Dockerfile ready for Hugging Face Spaces
-✅ Grader returns score in [0.0, 1.0]
+---
 
+## 🎮 Environment Details
 
-🛡️ Pre-Submission Validation
-Run this before submitting:
-Bashchmod +x validate-submission.sh
-./validate-submission.sh https://your-team.hf.space
-All checks must pass to avoid disqualification.
+### Observation (what the agent sees per step)
 
-📝 Built with ❤️ by Team Titans
-For the Meta AI Hackathon — Creating realistic RL environments for real-world problems.
+| Field                  | Type   | Description                                      |
+|------------------------|--------|--------------------------------------------------|
+| `email_id`             | int    | Unique identifier                                |
+| `sender`               | str    | Email address                                    |
+| `subject`              | str    | Subject line                                     |
+| `body`                 | str    | Full body text                                   |
+| `sender_importance`    | str    | VIP / Normal / Spam                              |
+| `email_length`         | int    | Character count — proxy for time cost            |
+| `relationship_score`   | float  | Health with this sender (0–100)                  |
+| `time_budget_remaining`| int    | Minutes remaining in workday                     |
+| `emails_remaining`     | int    | How many emails left to process                  |
+
+> **Partial Observability:** The agent sees one email at a time. It does **not** see actual response time, other senders’ relationship scores, or future emails.
+
+### Action Space
+
+| Action  | Value | Effect                                              |
+|---------|-------|-----------------------------------------------------|
+| IGNORE  | `0`   | Time budget unchanged. Relationship health decreases. VIPs become angry. |
+| RESPOND | `1`   | Time budget decreases. Relationship health increases. |
+
+### Reward Function
+
+**RESPOND:**
+```python
+email_value = base_priority × urgency_multiplier
+normalized_cost = estimated_response_time / 120.0
+reward = (email_value - 5.0 × normalized_cost) × (relationship_health / 100)
+```
+
+**IGNORE:**
+```python
+# Spam: reward = 0
+# Others:
+health_penalty = 15 × importance_weight
+reward = -1 × (email_value × health_penalty / 100)
+```
+
+**Episode End — Sunset Penalty:**
+```python
+penalty = -Σ(base_priority × relationship_health / 100) for all remaining emails
+```
+
+---
+
+## 📊 Tasks
+
+### Task 1 — Easy: Basic Prioritization
+- **Emails:** 20 (5 VIP, 10 Normal, 5 Spam)
+- **Time Budget:** 480 minutes
+- **Goal:** Respond to high-value emails, ignore spam
+- **Score:** `0.4 × value_efficiency + 0.6 × relationship_health`
+
+### Task 2 — Medium: VIP Relationship Tracking
+- **Emails:** 25 (8 VIP, 12 Normal, 5 Spam)
+- **Time Budget:** 420 minutes
+- **Goal:** Learn that ignoring VIPs triggers escalating follow-up chains
+- **Score:** `0.5 × priority_accuracy + 0.5 × vip_handling_score`
+
+### Task 3 — Hard: Full Multi-Objective Optimization
+- **Emails:** 30 (8 VIP, 14 Normal, 8 Spam)
+- **Time Budget:** 360 minutes
+- **Goal:** Balance time efficiency, priority accuracy, and relationship health under pressure
+- **Score:** `0.3 × time_efficiency + 0.4 × relationship_health + 0.3 × priority_accuracy`
+
+All grader scores are normalized to **[0.0, 1.0]**.
+
+---
+
+## 🛡️ Pre-Submission Checklist
+
+- [ ] Run `./validate-submission.sh https://your-team.hf.space`
+- [ ] Real `hf_` token in `.env`
+- [ ] Server starts without errors
+- [ ] All three tasks run cleanly (`TASK_ID=1,2,3`)
+- [ ] All scores are in `[0.0, 1.0]`
+- [ ] `.env` is in `.gitignore`
+- [ ] `docker build .` succeeds
+
+---
+
+## 🧪 stdout Log Format (Mandatory)
+
+```
+[START] task=basic-prioritization env=email-triage-rl model=Qwen/Qwen2.5-72B-Instruct
+[STEP] step=1 action=RESPOND reward=3.75 done=false error=null
+...
+[END] success=true steps=20 score=0.743 rewards=3.75,-4.20,...
+```
+
+---
+
+Built with ❤️ by **Team Titans** for the Meta AI Hackathon.
+
