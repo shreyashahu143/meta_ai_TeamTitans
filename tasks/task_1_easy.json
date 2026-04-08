@@ -12,7 +12,7 @@
   "avg_minutes_per_email": 24,
   "features": {
     "action_cost_asymmetry": true,
-    "dynamic_followups": true,
+    "dynamic_followups": false,
     "time_pressure": "low",
     "sunset_penalty": false,
     "time_traps": false
