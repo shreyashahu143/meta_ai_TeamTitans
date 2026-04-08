@@ -234,7 +234,7 @@ def log_end(success: bool, steps: int, score: float, rewards: list) -> None:
     score uses .3f (3 decimal places).
     rewards use .2f (2 decimal places), comma-separated.
     """
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards) if rewards else "0.00"
     print(
         f"[END] success={str(success).lower()} steps={steps} "
         f"score={score:.3f} rewards={rewards_str}",
