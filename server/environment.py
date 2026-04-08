@@ -25,11 +25,17 @@ REWARD FUNCTION:
                   reading_cost = max(MIN_IGNORE_TIME, int(estimated_response_time × IGNORE_READING_TIME_FACTOR))
                   time_budget_remaining -= reading_cost
 
-    Episode end — Sunset Penalty (if time runs out with emails remaining):
+    Episode end — Sunset Penalty (only if task config features.sunset_penalty = true):
         penalty = -Σ(base_priority × relationship_health / 100) for remaining emails
 
     Episode end — Time Bonus (if inbox fully cleared before time runs out):
         bonus = (time_remaining / original_time_budget) × 10
+
+TASK FEATURE FLAGS (read from task config):
+    sunset_penalty      → Task 1: false, Task 2: true,  Task 3: true
+    dynamic_followups   → Task 1: false, Task 2: true,  Task 3: true
+    repeat_ignore_penalty→Task 1: false, Task 2: false, Task 3: true
+    time_traps          → Task 1: false, Task 2: false, Task 3: true
 
 OWNER: Algorithm Engineer
 """
@@ -74,14 +80,20 @@ class EmailTriageEnv:
     Episode ends when:
         1. Inbox is empty (current_email_index >= len(inbox))  — clean finish
         2. Time budget runs out (time_budget_remaining <= 0)   — forced end
+
+    Task feature flags are read from task_config["features"] and gate mechanics:
+        - dynamic_followups:    whether ignoring VIPs injects follow-up emails
+        - sunset_penalty:       whether running out of time incurs a penalty
+        - repeat_ignore_penalty:whether ignoring same sender twice adds extra health damage
+        - time_traps:           whether long-body VIP emails get 120-180 min response times
     """
 
     def __init__(self, task_config: Optional[dict] = None, seed: Optional[int] = None):
         """
         Args:
             task_config: Dict from tasks/task_X.json.
-                         Controls num_emails, distribution, time_budget.
-                         If None, uses Task 1 defaults.
+                         Controls num_emails, distribution, time_budget, and features.
+                         If None, uses Task 1 defaults (no followups, no sunset penalty).
             seed:        Random seed for reproducibility.
                          When provided, the FIRST episode is seeded deterministically.
                          Subsequent reset() calls advance the RNG normally so that
@@ -95,14 +107,16 @@ class EmailTriageEnv:
             "normal_count": 10,
             "spam_count":   5,
             "time_budget":  DEFAULT_TIME_BUDGET,
+            "features": {
+                "action_cost_asymmetry":  True,
+                "dynamic_followups":      False,
+                "sunset_penalty":         False,
+                "repeat_ignore_penalty":  False,
+                "time_traps":             False,
+            },
         }
 
         # Seed once at construction time only.
-        # BUG IN SUBMITTED VERSION: reset() re-seeded with the same seed every call,
-        # making every episode identical. This would fail Phase 2 variance checks because
-        # graders that always return the same score on identical episodes are flagged.
-        # The seed is for reproducible FIRST episodes (e.g. unit tests), not for locking
-        # every episode to the same shuffle.
         if seed is not None:
             random.seed(seed)
 
@@ -118,6 +132,15 @@ class EmailTriageEnv:
 
         # Load email templates
         self._email_bank = self._load_email_bank()
+
+    # -----------------------------------------------------------------------
+    # FEATURE FLAG HELPERS
+    # -----------------------------------------------------------------------
+
+    def _feature(self, name: str) -> bool:
+        """Read a boolean feature flag from task_config['features'], defaulting to False."""
+        features = self.task_config.get("features", {})
+        return bool(features.get(name, False))
 
     # -----------------------------------------------------------------------
     # PUBLIC INTERFACE
@@ -136,8 +159,7 @@ class EmailTriageEnv:
         NOTE: Does NOT re-seed the RNG. Each call to reset() advances the RNG
         from where it left off, producing a different episode each time.
         This is intentional — Phase 2 variance checks require different episodes
-        to produce different scores. If you need a fully deterministic replay,
-        create a new EmailTriageEnv(seed=N) instance instead.
+        to produce different scores.
         """
         cfg = self.task_config
 
@@ -149,22 +171,12 @@ class EmailTriageEnv:
         normal_emails = random.sample(normal_pool, min(cfg["normal_count"], len(normal_pool)))
         spam_emails   = random.sample(spam_pool,   min(cfg["spam_count"],   len(spam_pool)))
 
-        # Warn when the bank is too small rather than silently under-sampling
         if len(vip_emails) < cfg["vip_count"]:
             print(f"[WARNING] VIP pool too small: requested {cfg['vip_count']}, got {len(vip_emails)}", flush=True)
         if len(normal_emails) < cfg["normal_count"]:
             print(f"[WARNING] Normal pool too small: requested {cfg['normal_count']}, got {len(normal_emails)}", flush=True)
         if len(spam_emails) < cfg["spam_count"]:
             print(f"[WARNING] Spam pool too small: requested {cfg['spam_count']}, got {len(spam_emails)}", flush=True)
-
-        total_requested = cfg["vip_count"] + cfg["normal_count"] + cfg["spam_count"]
-        total_sampled   = len(vip_emails) + len(normal_emails) + len(spam_emails)
-        if total_sampled < total_requested:
-            print(
-                f"[WARNING] Episode will have {total_sampled} emails instead of "
-                f"{total_requested} — fallback bank is active",
-                flush=True,
-            )
 
         all_emails = vip_emails + normal_emails + spam_emails
         random.shuffle(all_emails)
@@ -185,7 +197,7 @@ class EmailTriageEnv:
                 parent_email_id         = template.get("parent_email_id", None),
                 received_at_timestep    = 0,
             )
-            email.bank_email_id = template.get("email_id")  # store original bank ID
+            email.bank_email_id = template.get("email_id")
             self._inbox.append(email)
 
         # Initialise relationships for all unique senders
@@ -256,8 +268,7 @@ class EmailTriageEnv:
         else:  # IGNORE
             reward = self._reward_ignore(current_email, relationship)
 
-            # Agents still pay a reading cost on ignore.
-            # Spam is exempted — reading and binning spam is genuinely near-zero cost.
+            # Agents still pay a reading cost on ignore (except Spam).
             if current_email.sender_importance != "Spam":
                 reading_cost = max(
                     MIN_IGNORE_TIME,
@@ -276,16 +287,16 @@ class EmailTriageEnv:
                 current_email.times_ignored             += 1
                 current_email.sender_urgency_multiplier += 0.5
 
-                # Extra repeat-ignore penalty
-                if self._ignored_senders[sender] > 1:
+                # Extra repeat-ignore penalty — ONLY if task enables it (Task 3)
+                if self._feature("repeat_ignore_penalty") and self._ignored_senders[sender] > 1:
                     relationship.health = max(0.0, relationship.health - 10)
 
-                # Mark sender as angry and inject follow-up for VIP/Normal
-                if current_email.sender_importance in ("VIP", "Normal"):
+                # Dynamic follow-up injection — ONLY if task enables it (Tasks 2 & 3)
+                if self._feature("dynamic_followups") and \
+                        current_email.sender_importance in ("VIP", "Normal"):
                     relationship.is_angry = True
 
-                    # Guard prevents injecting a follow-up from a follow-up,
-                    # which would create infinite email chains.
+                    # Guard prevents injecting a follow-up from a follow-up
                     if not current_email.is_followup:
                         already_has_followup = any(
                             e.parent_email_id == current_email.email_id
@@ -311,6 +322,11 @@ class EmailTriageEnv:
                             )
                             insert_pos = min(self._current_email_index + 2, len(self._inbox))
                             self._inbox.insert(insert_pos, followup)
+
+                elif not self._feature("dynamic_followups") and \
+                        current_email.sender_importance in ("VIP", "Normal"):
+                    # Still mark angry (affects relationship score display) but no followup injected
+                    relationship.is_angry = True
 
                 info = {
                     "action":             "ignore",
@@ -338,18 +354,19 @@ class EmailTriageEnv:
         time_up     = self._time_budget_remaining <= 0
         done        = inbox_empty or time_up
 
-        # Mutually exclusive if/elif prevents double-counting the edge case
-        # where the inbox empties at the exact same step time runs out.
         original_budget = self.task_config.get("time_budget", DEFAULT_TIME_BUDGET)
 
         if done:
             if time_up and not inbox_empty:
-                # Sunset penalty — time ran out, emails remain
-                sunset_penalty         = self._calculate_sunset_penalty()
-                reward                += sunset_penalty
-                info["sunset_penalty"] = sunset_penalty
+                # Sunset penalty — ONLY if task config enables it
+                if self._feature("sunset_penalty"):
+                    sunset_penalty         = self._calculate_sunset_penalty()
+                    reward                += sunset_penalty
+                    info["sunset_penalty"] = sunset_penalty
+                else:
+                    info["sunset_penalty"] = 0.0
             elif inbox_empty:
-                # Time bonus — cleared entire inbox before time ran out
+                # Time bonus — always applied when inbox is cleared
                 time_ratio         = self._time_budget_remaining / original_budget
                 time_bonus         = round(time_ratio * 10, 4)
                 reward            += time_bonus
@@ -380,13 +397,7 @@ class EmailTriageEnv:
         )
 
     def close(self) -> None:
-        """
-        Clean up any resources. Added for OpenEnv spec completeness.
-        Currently a no-op — extend if file handles or network sockets are added.
-
-        TODO: Ensure server/app.py exposes a POST /close endpoint that calls
-        env.close(), otherwise client.close_env() in inference.py silently does nothing.
-        """
+        """Clean up any resources. No-op — extend if file handles or sockets are added."""
         pass
 
     # -----------------------------------------------------------------------
@@ -479,11 +490,15 @@ class EmailTriageEnv:
         Derives estimated_response_time from body length so the agent
         can actually learn the proxy signal it's given in observations.
 
-        Buckets (with noise so it's learnable but not deterministic):
+        Task 3 time_traps feature enables the 120-180 min bucket for long emails,
+        making even VIP emails potentially not worth responding to.
+
+        Buckets:
             < 150 chars   →  5–15  min  (quick reply)
             150–300 chars → 15–35  min  (standard)
             300–500 chars → 35–70  min  (deep work)
             > 500 chars   → 70–120 min  (black hole)
+            > 500 chars + time_traps → 70–180 min  (time trap — Task 3 only)
         """
         body_length = len(template.get("body", ""))
 
@@ -494,7 +509,9 @@ class EmailTriageEnv:
         elif body_length < 500:
             return random.randint(35, 70)
         else:
-            return random.randint(70, 120)
+            # time_traps extends the upper bound to 180 min (Task 3 only)
+            upper = 180 if self._feature("time_traps") else 120
+            return random.randint(70, upper)
 
     def _load_email_bank(self) -> dict:
         """Load pre-written email templates from data/email_bank.json."""
@@ -508,10 +525,7 @@ class EmailTriageEnv:
                 with open(path, "r") as f:
                     return json.load(f)
 
-        # Minimal fallback so env still runs without data file.
-        # TODO: Replace with a proper email_bank.json before submission.
-        # This fallback has 2 VIP, 1 Normal, 1 Spam — too small for Task 2/3 configs.
-        # The pool-size warnings in reset() will fire loudly when this is active.
+        # Minimal fallback — fires loud warnings in reset() when pool is too small
         return {
             "vip_emails": [
                 {

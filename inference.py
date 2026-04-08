@@ -11,6 +11,11 @@ MANDATORY per competition spec:
     - [END] is always emitted even on exception (try-finally)
     - Score formatted to 3 decimal places (matches official sample script log_end)
 
+STDOUT FORMAT (from official sample script — authoritative source):
+    [START] task=<task_name> env=<benchmark> model=<model_name>
+    [STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
+    [END] success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...,rn>
+
 HOW TO RUN:
     export HF_TOKEN=your_hf_token_here
     export API_BASE_URL=https://router.huggingface.co/v1
@@ -77,12 +82,51 @@ openai_client = OpenAI(
 # ---------------------------------------------------------------------------
 
 def load_task_config(task_id: int) -> dict:
-    """Load JSON task config if file exists, else return empty dict."""
+    """
+    Load JSON task config if file exists, else return built-in defaults.
+
+    IMPORTANT: Returns the FULL config dict including the 'features' block.
+    The environment reads features flags to gate mechanics like:
+        - dynamic_followups   (Task 2+)
+        - sunset_penalty      (Task 2+)
+        - repeat_ignore_penalty (Task 3)
+        - time_traps          (Task 3)
+    Passing an empty dict would cause the environment to run with ALL features
+    disabled (Task 1 behaviour), regardless of task_id.
+    """
     path = TASK_CONFIGS.get(task_id, "")
     if path and os.path.exists(path):
         with open(path) as f:
             return json.load(f)
-    return {}
+
+    # Built-in fallback defaults — mirrors the task JSON files exactly
+    fallbacks = {
+        1: {
+            "num_emails": 20, "vip_count": 5, "normal_count": 10, "spam_count": 5,
+            "time_budget": 480,
+            "features": {
+                "action_cost_asymmetry": True, "dynamic_followups": False,
+                "sunset_penalty": False, "time_traps": False, "repeat_ignore_penalty": False,
+            },
+        },
+        2: {
+            "num_emails": 25, "vip_count": 8, "normal_count": 12, "spam_count": 5,
+            "time_budget": 420,
+            "features": {
+                "action_cost_asymmetry": True, "dynamic_followups": True,
+                "sunset_penalty": True, "time_traps": False, "repeat_ignore_penalty": False,
+            },
+        },
+        3: {
+            "num_emails": 30, "vip_count": 8, "normal_count": 14, "spam_count": 8,
+            "time_budget": 360,
+            "features": {
+                "action_cost_asymmetry": True, "dynamic_followups": True,
+                "sunset_penalty": True, "time_traps": True, "repeat_ignore_penalty": True,
+            },
+        },
+    }
+    return fallbacks.get(task_id, fallbacks[1])
 
 
 def build_prompt(obs) -> str:
@@ -184,10 +228,11 @@ def log_end(success: bool, steps: int, score: float, rewards: list) -> None:
     """
     [END] emitted after env.close(), always, even on exception.
 
-    SPEC-CORRECT field order (official sample script, PDF p.13-15):
-        [END] success=<bool> steps=<n> score=<score> rewards=<r1,r2,...,rn>
+    Format from official sample script (authoritative):
+        [END] success=<bool> steps=<n> score=<0.000> rewards=<r1,r2,...,rn>
 
     score uses .3f (3 decimal places).
+    rewards use .2f (2 decimal places), comma-separated.
     """
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
@@ -210,8 +255,6 @@ def run_episode(task_id: int = 1) -> dict:
     """
     import client
 
-    # Grader is optional during development — fallback prevents import crash.
-    # IMPORTANT: A real grader is required to pass Phase 2 variance checks.
     try:
         from grader import grade_episode
         has_grader = True
@@ -219,6 +262,10 @@ def run_episode(task_id: int = 1) -> dict:
         has_grader = False
 
     task_name   = TASK_NAMES.get(task_id, f"task-{task_id}")
+
+    # Load full task config including features block — CRITICAL for correct behaviour.
+    # Passing an empty/partial config would disable followups and sunset penalty
+    # even for Tasks 2 and 3, making the environment behave like Task 1 always.
     task_config = load_task_config(task_id)
 
     log_start(task=task_name, env=ENV_BENCHMARK, model=MODEL_NAME)
@@ -233,17 +280,15 @@ def run_episode(task_id: int = 1) -> dict:
     score           = 0.0
 
     try:
-        # --- Verify server is reachable before starting (safe check) ---
-        # The spec does not require health_check, but it's helpful for debugging.
-        # We use hasattr to avoid AttributeError if client lacks this method.
+        # --- Verify server is reachable before starting ---
         if hasattr(client, "health_check") and not client.health_check():
             raise ConnectionError(
                 "Server not running. Start with:\n"
                 "  uvicorn server.app:app --host 0.0.0.0 --port 7860"
             )
 
-        # --- Start episode ---
-        obs = client.reset_env(task_config=task_config if task_config else None)
+        # --- Start episode — pass full config so environment reads feature flags ---
+        obs = client.reset_env(task_config=task_config)
 
         # --- Episode loop: one email at a time ---
         while True:
@@ -271,7 +316,6 @@ def run_episode(task_id: int = 1) -> dict:
             except Exception as e:
                 error_msg = str(e)[:120]
                 success   = False
-                # Log the failed step before re-raising so [STEP] count stays accurate
                 log_step(
                     step   = step_count + 1,
                     action = action_label,
@@ -279,7 +323,7 @@ def run_episode(task_id: int = 1) -> dict:
                     done   = True,
                     error  = error_msg,
                 )
-                raise  # caught by outer except → finally emits [END]
+                raise
 
             total_reward += result.reward
             step_count   += 1
@@ -297,7 +341,7 @@ def run_episode(task_id: int = 1) -> dict:
             # Use model_dump() for Pydantic v2 compatibility
             obs_dict = obs.model_dump() if hasattr(obs, "model_dump") else obs.__dict__
             episode_history.append({
-                "step":   step_count,
+                "step":        step_count,
                 "observation": obs_dict,
                 "action":      action,
                 "reward":      result.reward,
@@ -315,8 +359,8 @@ def run_episode(task_id: int = 1) -> dict:
         if has_grader:
             score = grade_episode(episode_history, final_state, task_id)
         else:
-            # Fallback: clip total_reward to [0,1] (will fail Phase 2 variance check)
-            score = max(0.0, min(1.0, total_reward))
+            # Fallback: normalised total reward — will fail Phase 2 variance check
+            score = max(0.0, min(1.0, total_reward / 100.0))
 
         score = float(max(0.0, min(1.0, score)))  # clamp to [0,1] per spec
 
