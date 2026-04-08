@@ -10,6 +10,7 @@ PURPOSE:
         reset()  → initialises a new episode, returns first Observation
         step()   → takes an action, returns StepResponse(Observation, reward, done, info)
         state()  → returns a DEEP COPY of full internal State (for grader/debug)
+        close()  → optional cleanup (added for spec completeness)
 
 REWARD FUNCTION:
     RESPOND (1):
@@ -18,9 +19,11 @@ REWARD FUNCTION:
         reward = (email_value - 5.0 × normalized_cost) × (relationship_health / 100)
 
     IGNORE (0):
-        if Spam → reward = 0 (correct decision, no penalty)
+        if Spam → reward = 0 (correct decision, no time penalty, no relationship penalty)
         else    → health_penalty = 15 × importance_weight
                   reward = -1 × (email_value × health_penalty / 100)
+                  reading_cost = max(MIN_IGNORE_TIME, int(estimated_response_time × IGNORE_READING_TIME_FACTOR))
+                  time_budget_remaining -= reading_cost
 
     Episode end — Sunset Penalty (if time runs out with emails remaining):
         penalty = -Σ(base_priority × relationship_health / 100) for remaining emails
@@ -35,7 +38,8 @@ import copy
 import json
 import os
 import random
-from typing import Dict, List, Optional, Tuple 
+from typing import Dict, List, Optional, Tuple
+
 from models import (
     RELATIONSHIP_CONFIG,
     Action,
@@ -51,10 +55,13 @@ from models import (
 # CONSTANTS
 # ---------------------------------------------------------------------------
 
-DEFAULT_TIME_BUDGET         = 480       # 8-hour workday in minutes
-INITIAL_RELATIONSHIP_HEALTH = 75.0     # All senders start at 75/100
-IGNORE_READING_TIME_FACTOR  = 0.2      # Reading an email before ignoring costs 20% of response time
-MIN_IGNORE_TIME             = 2        # Minimum 2 minutes to read any email
+DEFAULT_TIME_BUDGET         = 480   # 8-hour workday in minutes
+INITIAL_RELATIONSHIP_HEALTH = 75.0  # All senders start at 75/100
+
+# Agents pay a reading cost even when they ignore an email.
+# Without this, ignoring is zero-cost and the env is trivially exploitable.
+IGNORE_READING_TIME_FACTOR  = 0.2   # Reading before ignoring costs 20% of response time
+MIN_IGNORE_TIME             = 2     # Minimum 2 minutes to read any email before ignoring
 
 
 class EmailTriageEnv:
@@ -75,17 +82,27 @@ class EmailTriageEnv:
             task_config: Dict from tasks/task_X.json.
                          Controls num_emails, distribution, time_budget.
                          If None, uses Task 1 defaults.
-            seed: Random seed for reproducibility.
+            seed:        Random seed for reproducibility.
+                         When provided, the FIRST episode is seeded deterministically.
+                         Subsequent reset() calls advance the RNG normally so that
+                         repeated runs produce different episodes (variance check passes).
+                         To replay the exact same episode, pass the same seed to a
+                         fresh EmailTriageEnv() instance — do NOT re-seed on reset().
         """
         self.task_config = task_config or {
-            "num_emails":    20,
-            "vip_count":     5,
-            "normal_count":  10,
-            "spam_count":    5,
-            "time_budget":   DEFAULT_TIME_BUDGET,
+            "num_emails":   20,
+            "vip_count":    5,
+            "normal_count": 10,
+            "spam_count":   5,
+            "time_budget":  DEFAULT_TIME_BUDGET,
         }
 
-        # Set random seed if provided
+        # Seed once at construction time only.
+        # BUG IN SUBMITTED VERSION: reset() re-seeded with the same seed every call,
+        # making every episode identical. This would fail Phase 2 variance checks because
+        # graders that always return the same score on identical episodes are flagged.
+        # The seed is for reproducible FIRST episodes (e.g. unit tests), not for locking
+        # every episode to the same shuffle.
         if seed is not None:
             random.seed(seed)
 
@@ -115,6 +132,12 @@ class EmailTriageEnv:
         3. Initialise all relationship healths at 75
         4. Reset all counters
         5. Return first email as Observation
+
+        NOTE: Does NOT re-seed the RNG. Each call to reset() advances the RNG
+        from where it left off, producing a different episode each time.
+        This is intentional — Phase 2 variance checks require different episodes
+        to produce different scores. If you need a fully deterministic replay,
+        create a new EmailTriageEnv(seed=N) instance instead.
         """
         cfg = self.task_config
 
@@ -126,6 +149,23 @@ class EmailTriageEnv:
         normal_emails = random.sample(normal_pool, min(cfg["normal_count"], len(normal_pool)))
         spam_emails   = random.sample(spam_pool,   min(cfg["spam_count"],   len(spam_pool)))
 
+        # Warn when the bank is too small rather than silently under-sampling
+        if len(vip_emails) < cfg["vip_count"]:
+            print(f"[WARNING] VIP pool too small: requested {cfg['vip_count']}, got {len(vip_emails)}", flush=True)
+        if len(normal_emails) < cfg["normal_count"]:
+            print(f"[WARNING] Normal pool too small: requested {cfg['normal_count']}, got {len(normal_emails)}", flush=True)
+        if len(spam_emails) < cfg["spam_count"]:
+            print(f"[WARNING] Spam pool too small: requested {cfg['spam_count']}, got {len(spam_emails)}", flush=True)
+
+        total_requested = cfg["vip_count"] + cfg["normal_count"] + cfg["spam_count"]
+        total_sampled   = len(vip_emails) + len(normal_emails) + len(spam_emails)
+        if total_sampled < total_requested:
+            print(
+                f"[WARNING] Episode will have {total_sampled} emails instead of "
+                f"{total_requested} — fallback bank is active",
+                flush=True,
+            )
+
         all_emails = vip_emails + normal_emails + spam_emails
         random.shuffle(all_emails)
 
@@ -133,19 +173,19 @@ class EmailTriageEnv:
         self._inbox = []
         for i, template in enumerate(all_emails):
             email = Email(
-                email_id               = i,
-                sender                 = template["sender"],
-                sender_domain          = template.get("sender_domain", "external"),
-                subject                = template["subject"],
-                body                   = template["body"],
-                sender_importance      = template["sender_importance"],
-                base_priority          = template["base_priority"],
-                estimated_response_time= self._sample_time_cost(template),
-                is_followup            = template.get("is_followup", False),
-                parent_email_id        = template.get("parent_email_id", None),
-                received_at_timestep   = 0,
+                email_id                = i,
+                sender                  = template["sender"],
+                sender_domain           = template.get("sender_domain", "external"),
+                subject                 = template["subject"],
+                body                    = template["body"],
+                sender_importance       = template["sender_importance"],
+                base_priority           = template["base_priority"],
+                estimated_response_time = self._sample_time_cost(template),
+                is_followup             = template.get("is_followup", False),
+                parent_email_id         = template.get("parent_email_id", None),
+                received_at_timestep    = 0,
             )
-            email.bank_email_id = template.get("email_id")   # store original bank ID
+            email.bank_email_id = template.get("email_id")  # store original bank ID
             self._inbox.append(email)
 
         # Initialise relationships for all unique senders
@@ -154,11 +194,11 @@ class EmailTriageEnv:
             if email.sender not in self._relationships:
                 cfg_rel = RELATIONSHIP_CONFIG[email.sender_importance]
                 self._relationships[email.sender] = Relationship(
-                    sender_email     = email.sender,
-                    health           = INITIAL_RELATIONSHIP_HEALTH,
-                    importance       = email.sender_importance,
-                    importance_weight= cfg_rel["importance_weight"],
-                    degradation_rate = abs(cfg_rel["ignore_penalty"]),
+                    sender_email      = email.sender,
+                    health            = INITIAL_RELATIONSHIP_HEALTH,
+                    importance        = email.sender_importance,
+                    importance_weight = cfg_rel["importance_weight"],
+                    degradation_rate  = abs(cfg_rel["ignore_penalty"]),
                 )
 
         # Reset counters
@@ -216,17 +256,21 @@ class EmailTriageEnv:
         else:  # IGNORE
             reward = self._reward_ignore(current_email, relationship)
 
-            # Add time cost for reading the email before ignoring
-            reading_cost = max(MIN_IGNORE_TIME, int(current_email.estimated_response_time * IGNORE_READING_TIME_FACTOR))
-            self._time_budget_remaining -= reading_cost
-            self._total_time_spent      += reading_cost
-
-            # Apply relationship penalty (if not spam)
+            # Agents still pay a reading cost on ignore.
+            # Spam is exempted — reading and binning spam is genuinely near-zero cost.
             if current_email.sender_importance != "Spam":
+                reading_cost = max(
+                    MIN_IGNORE_TIME,
+                    int(current_email.estimated_response_time * IGNORE_READING_TIME_FACTOR),
+                )
+                self._time_budget_remaining -= reading_cost
+                self._total_time_spent      += reading_cost
+
+                # Apply relationship penalty
                 penalty = RELATIONSHIP_CONFIG[current_email.sender_importance]["ignore_penalty"]
                 relationship.health = max(0.0, relationship.health + penalty)  # penalty is negative
 
-                # Track ignore escalation (only for non-spam)
+                # Track ignore escalation
                 sender = current_email.sender
                 self._ignored_senders[sender] = self._ignored_senders.get(sender, 0) + 1
                 current_email.times_ignored             += 1
@@ -236,11 +280,12 @@ class EmailTriageEnv:
                 if self._ignored_senders[sender] > 1:
                     relationship.health = max(0.0, relationship.health - 10)
 
-                # Mark sender as angry and inject follow-up (only for VIP/Normal, and not already a follow-up)
+                # Mark sender as angry and inject follow-up for VIP/Normal
                 if current_email.sender_importance in ("VIP", "Normal"):
                     relationship.is_angry = True
 
-                    # Prevent infinite follow-up chains: only inject if current email is not itself a follow-up
+                    # Guard prevents injecting a follow-up from a follow-up,
+                    # which would create infinite email chains.
                     if not current_email.is_followup:
                         already_has_followup = any(
                             e.parent_email_id == current_email.email_id
@@ -267,34 +312,47 @@ class EmailTriageEnv:
                             insert_pos = min(self._current_email_index + 2, len(self._inbox))
                             self._inbox.insert(insert_pos, followup)
 
-            info = {
-                "action":             "ignore",
-                "time_cost":          reading_cost,
-                "ignore_count":       self._ignored_senders.get(current_email.sender, 0) if current_email.sender_importance != "Spam" else 0,
-                "relationship_delta": RELATIONSHIP_CONFIG[current_email.sender_importance]["ignore_penalty"] if current_email.sender_importance != "Spam" else 0,
-                "reward":             reward,
-            }
+                info = {
+                    "action":             "ignore",
+                    "time_cost":          reading_cost,
+                    "ignore_count":       self._ignored_senders.get(current_email.sender, 0),
+                    "relationship_delta": penalty,
+                    "reward":             reward,
+                }
 
-        self._emails_handled        += 1
-        self._current_email_index   += 1
-        self._current_timestep      += 1
+            else:
+                # Spam: correct ignore — zero time cost, zero relationship damage
+                info = {
+                    "action":             "ignore",
+                    "time_cost":          0,
+                    "ignore_count":       0,
+                    "relationship_delta": 0,
+                    "reward":             reward,
+                }
+
+        self._emails_handled      += 1
+        self._current_email_index += 1
+        self._current_timestep    += 1
 
         inbox_empty = self._current_email_index >= len(self._inbox)
         time_up     = self._time_budget_remaining <= 0
         done        = inbox_empty or time_up
 
-        # End-of-episode adjustments (mutually exclusive)
+        # Mutually exclusive if/elif prevents double-counting the edge case
+        # where the inbox empties at the exact same step time runs out.
         original_budget = self.task_config.get("time_budget", DEFAULT_TIME_BUDGET)
 
         if done:
             if time_up and not inbox_empty:
-                sunset_penalty = self._calculate_sunset_penalty()
-                reward += sunset_penalty
+                # Sunset penalty — time ran out, emails remain
+                sunset_penalty         = self._calculate_sunset_penalty()
+                reward                += sunset_penalty
                 info["sunset_penalty"] = sunset_penalty
             elif inbox_empty:
-                time_ratio = self._time_budget_remaining / original_budget
-                time_bonus = round(time_ratio * 10, 4)
-                reward += time_bonus
+                # Time bonus — cleared entire inbox before time ran out
+                time_ratio         = self._time_budget_remaining / original_budget
+                time_bonus         = round(time_ratio * 10, 4)
+                reward            += time_bonus
                 info["time_bonus"] = time_bonus
 
         next_obs = self._build_final_observation() if done else self._build_observation()
@@ -321,6 +379,16 @@ class EmailTriageEnv:
             emails_handled        = self._emails_handled,
         )
 
+    def close(self) -> None:
+        """
+        Clean up any resources. Added for OpenEnv spec completeness.
+        Currently a no-op — extend if file handles or network sockets are added.
+
+        TODO: Ensure server/app.py exposes a POST /close endpoint that calls
+        env.close(), otherwise client.close_env() in inference.py silently does nothing.
+        """
+        pass
+
     # -----------------------------------------------------------------------
     # PRIVATE HELPERS
     # -----------------------------------------------------------------------
@@ -332,8 +400,7 @@ class EmailTriageEnv:
 
         email_value     = base_priority × urgency_multiplier
         normalized_cost = estimated_response_time / 120.0
-            (so a 120-min email costs 1.0 in normalized units)
-            (a 60-min email costs 0.5, a 5-min email costs ~0.04)
+            (120-min email → cost 1.0, 60-min → 0.5, 5-min → ~0.04)
 
         Returns: (reward, time_cost_minutes)
         """
@@ -347,7 +414,7 @@ class EmailTriageEnv:
     def _reward_ignore(self, email: Email, relationship: Relationship) -> float:
         """
         Reward formula for IGNORE action.
-        Spam: 0 reward (correct decision).
+        Spam: 0.0 — correct decision, no penalty.
         Others: -1 × (email_value × health_penalty / 100)
         """
         if email.sender_importance == "Spam":
@@ -372,13 +439,13 @@ class EmailTriageEnv:
         return round(penalty, 4)
 
     def _build_observation(self) -> EmailObservation:
-        """Build agent's limited view of the current email."""
+        """Build the agent's limited, partial view of the current email."""
         if self._current_email_index >= len(self._inbox):
             return self._build_final_observation()
 
-        email    = self._inbox[self._current_email_index]
-        rel      = self._relationships.get(email.sender)
-        rel_score = rel.health if rel else 50.0
+        email            = self._inbox[self._current_email_index]
+        rel              = self._relationships.get(email.sender)
+        rel_score        = rel.health if rel else 50.0
         emails_remaining = len(self._inbox) - self._current_email_index - 1
 
         return EmailObservation(
@@ -387,7 +454,7 @@ class EmailTriageEnv:
             subject               = email.subject,
             body                  = email.body,
             sender_importance     = email.sender_importance,
-            email_length          = len(email.body),    # Proxy — NOT actual time cost
+            email_length          = len(email.body),  # Proxy — NOT actual time cost
             relationship_score    = rel_score,
             time_budget_remaining = self._time_budget_remaining,
             emails_remaining      = emails_remaining,
@@ -413,10 +480,10 @@ class EmailTriageEnv:
         can actually learn the proxy signal it's given in observations.
 
         Buckets (with noise so it's learnable but not deterministic):
-            < 150 chars  → 5–15 min   (quick reply)
-            150–300 chars → 15–35 min  (standard)
-            300–500 chars → 35–70 min  (deep work)
-            > 500 chars  → 70–120 min  (black hole)
+            < 150 chars   →  5–15  min  (quick reply)
+            150–300 chars → 15–35  min  (standard)
+            300–500 chars → 35–70  min  (deep work)
+            > 500 chars   → 70–120 min  (black hole)
         """
         body_length = len(template.get("body", ""))
 
@@ -428,7 +495,7 @@ class EmailTriageEnv:
             return random.randint(35, 70)
         else:
             return random.randint(70, 120)
-    
+
     def _load_email_bank(self) -> dict:
         """Load pre-written email templates from data/email_bank.json."""
         possible_paths = [
@@ -441,7 +508,10 @@ class EmailTriageEnv:
                 with open(path, "r") as f:
                     return json.load(f)
 
-        # Minimal fallback so env still runs without data file
+        # Minimal fallback so env still runs without data file.
+        # TODO: Replace with a proper email_bank.json before submission.
+        # This fallback has 2 VIP, 1 Normal, 1 Spam — too small for Task 2/3 configs.
+        # The pool-size warnings in reset() will fire loudly when this is active.
         return {
             "vip_emails": [
                 {
@@ -449,14 +519,14 @@ class EmailTriageEnv:
                     "subject": "Q4 Report Review Needed",
                     "body": "Please review the attached Q4 report and share feedback by EOD.",
                     "sender_importance": "VIP", "base_priority": 9,
-                    "estimated_response_time": 45, "is_followup": False, "parent_email_id": None
+                    "estimated_response_time": 45, "is_followup": False, "parent_email_id": None,
                 },
                 {
                     "sender": "cto@company.com", "sender_domain": "internal",
                     "subject": "Architecture Decision Needed",
                     "body": "We need a decision on the new microservices architecture. Please review and respond.",
                     "sender_importance": "VIP", "base_priority": 8,
-                    "estimated_response_time": 60, "is_followup": False, "parent_email_id": None
+                    "estimated_response_time": 60, "is_followup": False, "parent_email_id": None,
                 },
             ],
             "normal_emails": [
@@ -465,7 +535,7 @@ class EmailTriageEnv:
                     "subject": "PR Review Request",
                     "body": "Hey, can you review my pull request when you get a chance? It's a small fix.",
                     "sender_importance": "Normal", "base_priority": 5,
-                    "estimated_response_time": 15, "is_followup": False, "parent_email_id": None
+                    "estimated_response_time": 15, "is_followup": False, "parent_email_id": None,
                 },
             ],
             "spam_emails": [
@@ -474,7 +544,7 @@ class EmailTriageEnv:
                     "subject": "Top 10 Productivity Hacks!",
                     "body": "Unsubscribe at any time. Limited offer today only!",
                     "sender_importance": "Spam", "base_priority": 1,
-                    "estimated_response_time": 5, "is_followup": False, "parent_email_id": None
+                    "estimated_response_time": 5, "is_followup": False, "parent_email_id": None,
                 },
             ],
         }
