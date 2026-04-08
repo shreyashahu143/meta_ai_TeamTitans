@@ -36,6 +36,10 @@ app = FastAPI(
     description="OpenEnv email triage environment. POST /reset to start, POST /step to act.",
     version="1.0.0",
 )
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Email Triage RL Environment is running"}
  
 app.add_middleware(
     CORSMiddleware,
