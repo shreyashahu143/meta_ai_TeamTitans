@@ -2,6 +2,9 @@
 
 ### Team Titans — Meta AI Hackathon Submission
 
+**Live Environment:** https://TeamTitans25-Meta_ai_TeamTitans.hf.space  
+**Space Repository:** https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
+
 ---
 
 ## 🧠 What Problem Are We Solving?
@@ -66,7 +69,7 @@ meta_ai_TeamTitans/
 │   └── app.py            ← FastAPI endpoints: /reset, /step, /state, /health
 │
 ├── data/
-│   └── email_bank.json   ← 60 email templates (18 VIP, 32 Normal, 10 Spam)
+│   └── email_bank.json   ← 82 email templates 
 │
 ├── tasks/
 │   ├── task_1_easy.json  ← 20 emails, 480 min budget
@@ -129,13 +132,15 @@ TASK_ID=1
 ENV_SERVER_URL=http://localhost:7860
 ```
 
-### Step 5 — Verify
-```bash
-python --version          # Should show Python 3.11.x
-pip list                  # Should show fastapi, uvicorn, pydantic, etc.
-```
+### For Hugging Face Space Deployment
+Set these as **Variables and Secrets** in your Space Settings:
 
-> ⚠️ **Always activate the venv before running any file in this project.**
+| Name           | Value                                      | Type    |
+|----------------|--------------------------------------------|---------|
+| `HF_TOKEN`     | `hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`        | Secret  |
+| `API_BASE_URL` | `https://router.huggingface.co/v1`         | Variable|
+| `MODEL_NAME`   | `Qwen/Qwen2.5-72B-Instruct`                | Variable|
+| `TASK_ID`      | `1` (change for Task 2 or 3)               | Variable|
 
 ---
 
@@ -145,8 +150,7 @@ pip list                  # Should show fastapi, uvicorn, pydantic, etc.
 
 **Terminal 1: Start the server**
 ```bash
-source venv/bin/activate        # macOS/Linux
-# venv\Scripts\Activate.ps1     # Windows
+source venv/bin/activate
 cd server/
 uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 ```
@@ -154,7 +158,7 @@ uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 **Terminal 2: Run the agent**
 ```bash
 source venv/bin/activate
-python inference.py             # Runs task defined by TASK_ID
+python inference.py
 ```
 
 To run specific tasks:
@@ -252,28 +256,51 @@ All grader scores are normalized to **[0.0, 1.0]**.
 
 ---
 
-## 🛡️ Pre-Submission Checklist
-
-- [ ] Run `./validate-submission.sh https://your-team.hf.space`
-- [ ] Real `hf_` token in `.env`
-- [ ] Server starts without errors
-- [ ] All three tasks run cleanly (`TASK_ID=1,2,3`)
-- [ ] All scores are in `[0.0, 1.0]`
-- [ ] `.env` is in `.gitignore`
-- [ ] `docker build .` succeeds
-
----
-
 ## 🧪 stdout Log Format (Mandatory)
+
+Your `inference.py` must emit **exactly** these formats:
 
 ```
 [START] task=basic-prioritization env=email-triage-rl model=Qwen/Qwen2.5-72B-Instruct
 [STEP] step=1 action=RESPOND reward=3.75 done=false error=null
+[STEP] step=2 action=IGNORE reward=-4.20 done=false error=null
 ...
-[END] success=true steps=20 score=0.743 rewards=3.75,-4.20,...
+[END] success=true steps=20 score=0.74 rewards=3.75,-4.20,...
 ```
+
+**Rules:**
+- `reward` values → **2 decimal places**
+- `done` and `success` → lowercase (`true` / `false`)
+- `error` → `null` when no error
+
+---
+
+## 🛡️ Pre-Submission Checklist
+
+- [ ] Run `./validate-submission.sh https://TeamTitans25-Meta_ai_TeamTitans.hf.space`
+- [ ] Real `hf_` token set in HF Space Secrets
+- [ ] Server starts without errors
+- [ ] All three tasks run cleanly (`TASK_ID=1,2,3`)
+- [ ] All scores are in `[0.0, 1.0]`
+- [ ] `.env` is in `.gitignore`
+- [ ] `docker build .` succeeds locally and on HF Space
+
+---
+
+## ✅ Submission Checklist
+
+- [ ] HF Space is **public** and accessible (`/reset` returns 200)
+- [ ] `./validate-submission.sh` passes **all** checks
+- [ ] Logs follow the exact `[START] / [STEP] / [END]` format
+- [ ] All scores are between **0.0 and 1.0**
+- [ ] Docker builds successfully on Hugging Face Spaces
+
+**Submission URL:**  
+https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
 
 ---
 
 Built with ❤️ by **Team Titans** for the Meta AI Hackathon.
+
+```
 
