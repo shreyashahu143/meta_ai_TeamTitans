@@ -1,6 +1,6 @@
 # 📧 Email Triage RL Environment
 
-### Team Titans — Meta AI Hackathon Submission
+### Team Titans — Meta AI OpenEnv Hackathon 2026 Submission
 
 **Live Environment:** https://TeamTitans25-Meta_ai_TeamTitans.hf.space  
 **Space Repository:** https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
@@ -14,15 +14,10 @@ Most email management tools rely on **static priority labels** — simple scores
 Current systems miss two critical blind spots:
 
 **⚡ Action Cost Asymmetry**  
-Not every email costs the same time. A quick "Got it" takes 2 minutes; reviewing an 8-vendor contract audit takes 3 hours.  
-
-An intelligent agent must ask:  
-*"Is the expected reward worth the actual time cost right now?"*
+Not every email costs the same time. A quick "Got it" takes 2 minutes; reviewing an 8-vendor contract audit takes 3 hours. An intelligent agent must ask: *"Is the expected reward worth the actual time cost right now?"*
 
 **👥 Sender Relationship Decay**  
-Ignoring someone is not a one-time cost — it **compounds**. Ignore your boss once: tolerable. Three times: they're angry and sending escalating follow-ups.  
-
-The agent must learn that relationship damage is an investment, not a fixed fee.
+Ignoring someone is not a one-time cost — it **compounds**. Ignore your boss once: tolerable. Three times: they're angry and sending escalating follow-ups. The agent must learn that relationship damage is an investment, not a fixed fee.
 
 ---
 
@@ -36,7 +31,7 @@ OpenEnv = A Restaurant
   models.py             ← The Menu (Type-safe contracts for everything)
   inference.py          ← The Customer (The AI agent making decisions)
   grader.py             ← The Food Critic (Scores how well the AI did)
-  data/email_bank.json  ← The Ingredients (60 pre-written email templates)
+  data/email_bank.json  ← The Ingredients (82 pre-written email templates)
 ```
 
 ### Request Flow
@@ -69,7 +64,7 @@ meta_ai_TeamTitans/
 │   └── app.py            ← FastAPI endpoints: /reset, /step, /state, /health
 │
 ├── data/
-│   └── email_bank.json   ← 82 email templates 
+│   └── email_bank.json   ← 82 email templates
 │
 ├── tasks/
 │   ├── task_1_easy.json  ← 20 emails, 480 min budget
@@ -199,35 +194,41 @@ curl -X POST http://localhost:7860/step -H "Content-Type: application/json" -d '
 | `time_budget_remaining`| int    | Minutes remaining in workday                     |
 | `emails_remaining`     | int    | How many emails left to process                  |
 
-> **Partial Observability:** The agent sees one email at a time. It does **not** see actual response time, other senders’ relationship scores, or future emails.
+> **Partial Observability:** The agent sees one email at a time. It does **not** see actual response time, other senders' relationship scores, or future emails.
 
 ### Action Space
 
 | Action  | Value | Effect                                              |
 |---------|-------|-----------------------------------------------------|
-| IGNORE  | `0`   | Time budget unchanged. Relationship health decreases. VIPs become angry. |
-| RESPOND | `1`   | Time budget decreases. Relationship health increases. |
+| IGNORE  | `0`   | Small reading cost deducted. Relationship health decreases. VIPs become angry and send follow-ups. |
+| RESPOND | `1`   | Time budget decreases proportional to email length. Relationship health increases. |
 
 ### Reward Function
 
 **RESPOND:**
 ```python
-email_value = base_priority × urgency_multiplier
+email_value     = base_priority × urgency_multiplier
 normalized_cost = estimated_response_time / 120.0
 reward = (email_value - 5.0 × normalized_cost) × (relationship_health / 100)
 ```
 
 **IGNORE:**
 ```python
-# Spam: reward = 0
+# Spam: reward = 0 (correct decision, near-zero time cost)
 # Others:
 health_penalty = 15 × importance_weight
 reward = -1 × (email_value × health_penalty / 100)
+# Also deducts a small reading cost (20% of response time, min 2 min)
 ```
 
-**Episode End — Sunset Penalty:**
+**Episode End — Sunset Penalty (time runs out):**
 ```python
 penalty = -Σ(base_priority × relationship_health / 100) for all remaining emails
+```
+
+**Episode End — Time Bonus (inbox cleared early):**
+```python
+bonus = (time_remaining / original_time_budget) × 10
 ```
 
 ---
@@ -236,42 +237,72 @@ penalty = -Σ(base_priority × relationship_health / 100) for all remaining emai
 
 ### Task 1 — Easy: Basic Prioritization
 - **Emails:** 20 (5 VIP, 10 Normal, 5 Spam)
-- **Time Budget:** 480 minutes
+- **Time Budget:** 480 minutes (generous — agent can recover from minor mistakes)
+- **Features:** Action cost asymmetry enabled, no follow-ups, no sunset penalty
 - **Goal:** Respond to high-value emails, ignore spam
 - **Score:** `0.4 × value_efficiency + 0.6 × relationship_health`
 
 ### Task 2 — Medium: VIP Relationship Tracking
 - **Emails:** 25 (8 VIP, 12 Normal, 5 Spam)
-- **Time Budget:** 420 minutes
+- **Time Budget:** 420 minutes (tighter — agent must skip some Normal/Spam)
+- **Features:** Dynamic follow-up injection, sunset penalty active
 - **Goal:** Learn that ignoring VIPs triggers escalating follow-up chains
 - **Score:** `0.5 × priority_accuracy + 0.5 × vip_handling_score`
+- **VIP Handling Score:** 50% response rate + 50% avg VIP health − 0.05 per follow-up (max −0.30)
 
 ### Task 3 — Hard: Full Multi-Objective Optimization
 - **Emails:** 30 (8 VIP, 14 Normal, 8 Spam)
-- **Time Budget:** 360 minutes
-- **Goal:** Balance time efficiency, priority accuracy, and relationship health under pressure
+- **Time Budget:** 360 minutes (severe pressure — cannot finish all emails)
+- **Features:** Time-trap emails (up to 180 min), dynamic follow-ups, repeat-ignore penalty, sunset penalty
+- **Goal:** Balance time efficiency, priority accuracy, and relationship health simultaneously. Even VIP emails may not be worth responding to if they are very long and time is low.
 - **Score:** `0.3 × time_efficiency + 0.4 × relationship_health + 0.3 × priority_accuracy`
 
 All grader scores are normalized to **[0.0, 1.0]**.
 
 ---
 
+## 📊 Baseline Scores (Qwen/Qwen2.5-72B-Instruct via HuggingFace Router)
+
+| Task | Name                        | Score (0.0–1.0) | Notes                                                    |
+|------|-----------------------------|-----------------|----------------------------------------------------------|
+| 1    | Basic Prioritization        | ~0.72           | LLM correctly handles VIPs and spam; struggles on borderline Normal emails |
+| 2    | VIP Relationship Tracking   | ~0.61           | Partial VIP coverage; some follow-up chains triggered    |
+| 3    | Full Relationship Management| ~0.54           | Time pressure causes suboptimal decisions on long emails  |
+
+> Scores vary ±0.05 across runs due to random email ordering per episode. This variance is intentional and ensures Phase 2 grader variance checks pass.
+
+---
+
 ## 🧪 stdout Log Format (Mandatory)
 
-Your `inference.py` must emit **exactly** these formats:
+Your `inference.py` emits **exactly** these formats per the OpenEnv spec:
 
 ```
 [START] task=basic-prioritization env=email-triage-rl model=Qwen/Qwen2.5-72B-Instruct
 [STEP] step=1 action=RESPOND reward=3.75 done=false error=null
 [STEP] step=2 action=IGNORE reward=-4.20 done=false error=null
 ...
-[END] success=true steps=20 score=0.74 rewards=3.75,-4.20,...
+[END] success=true steps=20 score=0.720 rewards=3.75,-4.20,...
 ```
 
 **Rules:**
 - `reward` values → **2 decimal places**
+- `score` → **3 decimal places**
 - `done` and `success` → lowercase (`true` / `false`)
 - `error` → `null` when no error
+- `[END]` is **always** emitted even on exception (try-finally guarantee)
+
+---
+
+## 🔑 Key Design Decisions
+
+**Why partial observability?** The agent sees `email_length` (character count) as a proxy for time cost — not the actual `estimated_response_time`. This is Blind Spot #1: the agent must *learn* the correlation between email length and time cost, rather than computing it exactly.
+
+**Why does ignoring cost time?** Without a reading cost for IGNORE actions, ignoring is zero-cost and the environment is trivially exploitable (always ignore everything). The 20% reading cost makes the action-cost asymmetry real.
+
+**Why does the grader use rewards, not ground truth?** For Normal emails, we use the reward signal to determine correctness rather than a hardcoded label. A positive reward means the decision was good given the time/relationship tradeoff — this is more faithful to the actual optimization objective.
+
+**Why seed once at construction, not at reset?** Re-seeding on every `reset()` call would produce identical episodes, which would fail Phase 2 variance checks. The seed is consumed only for the first episode; subsequent episodes advance the RNG naturally.
 
 ---
 
@@ -283,24 +314,24 @@ Your `inference.py` must emit **exactly** these formats:
 - [ ] All three tasks run cleanly (`TASK_ID=1,2,3`)
 - [ ] All scores are in `[0.0, 1.0]`
 - [ ] `.env` is in `.gitignore`
-- [ ] `docker build .` succeeds locally and on HF Space
+- [ ] `docker build .` succeeds locally
 
 ---
 
 ## ✅ Submission Checklist
 
 - [ ] HF Space is **public** and accessible (`/reset` returns 200)
-- [ ] `./validate-submission.sh` passes **all** checks
+- [ ] `./validate-submission.sh` passes **all 5** checks
 - [ ] Logs follow the exact `[START] / [STEP] / [END]` format
 - [ ] All scores are between **0.0 and 1.0**
+- [ ] `score` in `[END]` uses **3 decimal places**
 - [ ] Docker builds successfully on Hugging Face Spaces
+- [ ] openenv validate passes
+- [ ] inference.py uses OpenAI client (NOT Anthropic SDK)
 
 **Submission URL:**  
 https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
 
 ---
 
-Built with ❤️ by **Team Titans** for the Meta AI Hackathon.
-
-```
-
+Built with ❤️ by **Team Titans** for the Meta AI OpenEnv Hackathon 2026.

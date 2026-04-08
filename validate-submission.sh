@@ -9,6 +9,12 @@
 #   4. openenv validate passes
 #   5. inference.py Python syntax check
 #
+# ADDITIONAL CHECKS (Team Titans specific):
+#   - [END] line contains 'score=' field (required by spec)
+#   - score formatted to 3 decimal places
+#   - grader returns [0.0, 1.0] not [0, 100]
+#   - inference.py uses OpenAI client (NOT Anthropic SDK)
+#
 # Usage:
 #   ./validate-submission.sh [hf_space_url_or_repo]
 #
@@ -22,7 +28,6 @@ set -uo pipefail
 
 DOCKER_BUILD_TIMEOUT=600
 
-# Colors for terminal output
 if [ -t 1 ]; then
   RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
 else
@@ -58,23 +63,17 @@ CLEANUP_FILES=()
 cleanup() { rm -f "${CLEANUP_FILES[@]+"${CLEANUP_FILES[@]}"}"; }
 trap cleanup EXIT
 
-# -----------------------------------------------------------------------------
-# Parse and normalise the Space URL
-# -----------------------------------------------------------------------------
 normalise_hf_url() {
   local input="$1"
-  # If it's a huggingface.co/spaces/... URL, convert to *.hf.space
   if [[ "$input" =~ https://huggingface\.co/spaces/([^/]+)/([^/]+) ]]; then
     local user="${BASH_REMATCH[1]}"
     local repo="${BASH_REMATCH[2]}"
     echo "https://${user}-${repo}.hf.space"
   else
-    # Already a direct URL (or custom)
     echo "$input"
   fi
 }
 
-# Default Space URL (TeamTitans25/Meta_ai_TeamTitans) – override with argument
 DEFAULT_SPACE_URL="https://TeamTitans25-Meta_ai_TeamTitans.hf.space"
 
 if [ $# -ge 1 ]; then
@@ -134,18 +133,31 @@ else
   stop_at "Step 1"
 fi
 
+# Also check /step and /state endpoints
+HTTP_STEP=$(curl -s -o /dev/null -w "%{http_code}" \
+  -X POST -H "Content-Type: application/json" -d '{"action":1}' \
+  "$PING_URL/step" --max-time 30 2>/dev/null || printf "000")
+[ "$HTTP_STEP" = "200" ] && pass "/step endpoint returns 200" || warn "/step returned HTTP $HTTP_STEP"
+
+HTTP_STATE=$(curl -s -o /dev/null -w "%{http_code}" \
+  "$PING_URL/state" --max-time 30 2>/dev/null || printf "000")
+[ "$HTTP_STATE" = "200" ] && pass "/state endpoint returns 200" || warn "/state returned HTTP $HTTP_STATE"
+
 # -----------------------------------------------------------------------------
 # STEP 2 — Files + inference.py compliance
 # -----------------------------------------------------------------------------
 log "${BOLD}Step 2/5: Checking required files and inference.py compliance${NC} ..."
 ERR=0
 
-for f in "inference.py" "openenv.yaml" "requirements.txt" "Dockerfile" \
-         "grader.py" "client.py" "models.py"; do
+for f in "inference.py" "openenv.yaml" "requirements.txt" "grader.py" "client.py" "models.py"; do
   if [ ! -f "$REPO_DIR/$f" ]; then
-    fail "Missing: $f"; ERR=$((ERR+1))
+    fail "Missing required file: $f"; ERR=$((ERR+1))
   fi
 done
+
+if [ ! -f "$REPO_DIR/Dockerfile" ] && [ ! -f "$REPO_DIR/server/Dockerfile" ]; then
+  fail "Missing: Dockerfile (checked root and server/)"; ERR=$((ERR+1))
+fi
 
 for t in "tasks/task_1_easy.json" "tasks/task_2_medium.json" "tasks/task_3_hard.json"; do
   if [ ! -f "$REPO_DIR/$t" ]; then
@@ -173,12 +185,34 @@ for marker in "\[START\]" "\[STEP\]" "\[END\]"; do
   fi
 done
 
-# Must use OpenAI client, NOT Anthropic
-if grep -q "from anthropic" "$REPO_DIR/inference.py" 2>/dev/null; then
-  fail "inference.py uses Anthropic SDK — spec requires OpenAI client"; ERR=$((ERR+1))
+# CRITICAL: [END] must include score= field
+if ! grep -q "score=" "$REPO_DIR/inference.py"; then
+  fail "inference.py [END] line missing 'score=' field — spec requires: [END] success=... steps=... score=0.720 rewards=..."
+  ERR=$((ERR+1))
+else
+  # Verify 3 decimal places
+  if grep -q "\.3f" "$REPO_DIR/inference.py"; then
+    pass "[END] score field uses 3 decimal places (.3f) — spec compliant"
+  else
+    warn "score= may not use 3 decimal places — verify [END] format is score=0.720 (not 0.72)"
+  fi
 fi
-if ! grep -q "from openai" "$REPO_DIR/inference.py" 2>/dev/null; then
+
+# Must NOT use Anthropic SDK
+if grep -q "from anthropic" "$REPO_DIR/inference.py" 2>/dev/null || \
+   grep -q "import anthropic" "$REPO_DIR/inference.py" 2>/dev/null; then
+  fail "inference.py uses Anthropic SDK — INSTANT DISQUALIFICATION. Must use OpenAI client."; ERR=$((ERR+1))
+fi
+
+if ! grep -q "from openai\|import openai" "$REPO_DIR/inference.py" 2>/dev/null; then
   warn "inference.py may not import OpenAI client — verify manually"
+fi
+
+# try-finally guarantee for [END]
+if grep -q "finally:" "$REPO_DIR/inference.py"; then
+  pass "inference.py has try-finally — [END] emitted even on exception"
+else
+  warn "inference.py missing try-finally — [END] MUST be emitted even on exception"
 fi
 
 [ $ERR -gt 0 ] && stop_at "Step 2 (inference.py compliance)"
@@ -238,7 +272,7 @@ fi
 # -----------------------------------------------------------------------------
 # STEP 5 — Python syntax check
 # -----------------------------------------------------------------------------
-log "${BOLD}Step 5/5: Python syntax check on inference.py${NC} ..."
+log "${BOLD}Step 5/5: Python syntax check on inference.py and grader.py${NC} ..."
 
 PYTHON_CMD=""
 for py in "python3.11" "python3" "python"; do
@@ -256,7 +290,73 @@ else
     fail "inference.py has syntax errors"
     printf "\n%s\n\n" "$SYN_OUT"
     hint "Fix syntax errors and re-run the validator."
-    stop_at "Step 5"
+    stop_at "Step 5 (inference.py)"
+  fi
+
+  SYN_GRADER=$(cd "$REPO_DIR" && "$PYTHON_CMD" -m py_compile grader.py 2>&1)
+  if [ $? -eq 0 ]; then
+    pass "grader.py syntax valid"
+  else
+    fail "grader.py has syntax errors"
+    printf "\n%s\n\n" "$SYN_GRADER"
+    stop_at "Step 5 (grader.py)"
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# BONUS — Grader score range sanity check
+# -----------------------------------------------------------------------------
+log "${BOLD}Bonus: Grader score range check [0.0, 1.0]${NC} ..."
+if [ -n "$PYTHON_CMD" ]; then
+  RANGE_CHECK=$( cd "$REPO_DIR" && "$PYTHON_CMD" - <<'PYEOF' 2>&1
+import sys
+sys.path.insert(0, ".")
+try:
+    from models import State, Email, Relationship
+    from grader import grade_episode
+    email = Email(
+        email_id=0, sender="test@co.com", sender_domain="internal",
+        subject="Test", body="Body", sender_importance="Normal",
+        base_priority=5, estimated_response_time=15,
+    )
+    rel = Relationship(
+        sender_email="test@co.com", health=75.0, importance="Normal",
+        importance_weight=2, degradation_rate=10.0,
+    )
+    state = State(
+        inbox=[email], relationships={"test@co.com": rel},
+        current_email_index=1, current_timestep=1,
+        time_budget_remaining=465, total_time_spent=15, emails_handled=1,
+    )
+    history = [{
+        "step": 1,
+        "observation": {
+            "sender_importance": "Normal", "email_id": 0, "sender": "test@co.com",
+            "subject": "Test", "body": "Body", "email_length": 4,
+            "relationship_score": 75.0, "time_budget_remaining": 465, "emails_remaining": 0
+        },
+        "action": 1, "reward": 3.0, "info": {}
+    }]
+    failed = []
+    for task_id in [1, 2, 3]:
+        score = grade_episode(history, state, task_id)
+        if not (0.0 <= score <= 1.0):
+            failed.append(f"Task {task_id}: score={score}")
+    if failed:
+        print("FAIL: " + ", ".join(failed))
+        sys.exit(1)
+    print("OK")
+except Exception as e:
+    print(f"SKIP: {e}")
+PYEOF
+)
+  if echo "$RANGE_CHECK" | grep -q "^OK"; then
+    pass "Grader returns [0.0, 1.0] scores for all 3 tasks"
+  elif echo "$RANGE_CHECK" | grep -q "^FAIL"; then
+    fail "Grader score out of range — $RANGE_CHECK"
+    hint "grade_task_* functions must return float in [0.0, 1.0], not [0, 100]."
+  else
+    warn "Could not run grader range check: $RANGE_CHECK"
   fi
 fi
 
@@ -265,7 +365,7 @@ fi
 # -----------------------------------------------------------------------------
 printf "\n${BOLD}===============================================${NC}\n"
 if [ $FAIL -eq 0 ]; then
-  printf "${GREEN}${BOLD}  All 5/5 checks passed!${NC}\n"
+  printf "${GREEN}${BOLD}  All checks passed!${NC}\n"
   printf "${GREEN}${BOLD}  Your submission is ready.${NC}\n"
   printf "${BOLD}===============================================${NC}\n\n"
   printf "  Next steps:\n"
@@ -275,6 +375,7 @@ if [ $FAIL -eq 0 ]; then
   exit 0
 else
   printf "${RED}${BOLD}  %d check(s) failed. Fix before submitting.${NC}\n" "$FAIL"
+  printf "  Passed: %d | Failed: %d\n" "$PASS" "$FAIL"
   printf "${BOLD}===============================================${NC}\n\n"
   exit 1
 fi
