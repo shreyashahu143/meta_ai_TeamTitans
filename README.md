@@ -1,3 +1,12 @@
+---
+title: Email Triage RL Environment
+emoji: 📧
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # 📧 Email Triage RL Environment
 
 ### Team Titans — Meta AI OpenEnv Hackathon 2026 Submission
