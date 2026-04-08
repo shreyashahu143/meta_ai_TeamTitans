@@ -9,22 +9,20 @@
 #   4. openenv validate passes
 #   5. inference.py Python syntax check
 #
-# Prerequisites:
-#   Docker, openenv-core (pip install openenv-core), curl, Python 3.11
-#
 # Usage:
-#   chmod +x validate-submission.sh
-#   ./validate-submission.sh <hf_space_url> [repo_dir]
+#   ./validate-submission.sh [hf_space_url_or_repo]
 #
 # Examples:
-#   ./validate-submission.sh https://my-team.hf.space
-#   ./validate-submission.sh https://my-team.hf.space ./my-repo
+#   ./validate-submission.sh
+#   ./validate-submission.sh https://TeamTitans25-Meta_ai_TeamTitans.hf.space
+#   ./validate-submission.sh https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
 #
 
 set -uo pipefail
 
 DOCKER_BUILD_TIMEOUT=600
 
+# Colors for terminal output
 if [ -t 1 ]; then
   RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
 else
@@ -60,12 +58,37 @@ CLEANUP_FILES=()
 cleanup() { rm -f "${CLEANUP_FILES[@]+"${CLEANUP_FILES[@]}"}"; }
 trap cleanup EXIT
 
-PING_URL="${1:-}"
+# -----------------------------------------------------------------------------
+# Parse and normalise the Space URL
+# -----------------------------------------------------------------------------
+normalise_hf_url() {
+  local input="$1"
+  # If it's a huggingface.co/spaces/... URL, convert to *.hf.space
+  if [[ "$input" =~ https://huggingface\.co/spaces/([^/]+)/([^/]+) ]]; then
+    local user="${BASH_REMATCH[1]}"
+    local repo="${BASH_REMATCH[2]}"
+    echo "https://${user}-${repo}.hf.space"
+  else
+    # Already a direct URL (or custom)
+    echo "$input"
+  fi
+}
+
+# Default Space URL (TeamTitans25/Meta_ai_TeamTitans) – override with argument
+DEFAULT_SPACE_URL="https://TeamTitans25-Meta_ai_TeamTitans.hf.space"
+
+if [ $# -ge 1 ]; then
+  RAW_URL="$1"
+else
+  RAW_URL="$DEFAULT_SPACE_URL"
+fi
+
+PING_URL="$(normalise_hf_url "$RAW_URL")"
 REPO_DIR="${2:-.}"
 
 if [ -z "$PING_URL" ]; then
-  printf "Usage: %s <hf_space_url> [repo_dir]\n\n" "$0"
-  printf "  Example: ./validate-submission.sh https://teamtitans.hf.space .\n\n"
+  printf "Error: Could not determine Space URL.\n"
+  printf "Usage: %s [hf_space_url_or_repo] [repo_dir]\n" "$0"
   exit 1
 fi
 
@@ -83,16 +106,16 @@ log "Repo:      $REPO_DIR"
 log "Space URL: $PING_URL"
 printf "\n"
 
-# =============================================================================
-# STEP 1 — Ping HF Space (fixed curl bug)
-# =============================================================================
+# -----------------------------------------------------------------------------
+# STEP 1 — Ping HF Space
+# -----------------------------------------------------------------------------
 log "${BOLD}Step 1/5: Pinging HF Space${NC} ($PING_URL/reset) ..."
 
 CURL_OUT=$(portable_mktemp "val-curl-body")
 CURL_ERR=$(portable_mktemp "val-curl-err")
 CLEANUP_FILES+=("$CURL_OUT" "$CURL_ERR")
 
-HTTP_CODE=$(curl -s -o "$CURL_OUT" -w "%{http_code}" \
+HTTP_CODE=$(curl -s -L -o "$CURL_OUT" -w "%{http_code}" \
   -X POST -H "Content-Type: application/json" -d '{}' \
   "$PING_URL/reset" --max-time 30 2>"$CURL_ERR" || printf "000")
 
@@ -111,9 +134,9 @@ else
   stop_at "Step 1"
 fi
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # STEP 2 — Files + inference.py compliance
-# =============================================================================
+# -----------------------------------------------------------------------------
 log "${BOLD}Step 2/5: Checking required files and inference.py compliance${NC} ..."
 ERR=0
 
@@ -161,9 +184,9 @@ fi
 [ $ERR -gt 0 ] && stop_at "Step 2 (inference.py compliance)"
 pass "All required files present — inference.py spec-compliant"
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # STEP 3 — Docker build
-# =============================================================================
+# -----------------------------------------------------------------------------
 log "${BOLD}Step 3/5: Running docker build${NC} ..."
 
 if ! command -v docker &>/dev/null; then
@@ -189,9 +212,9 @@ else
   stop_at "Step 3"
 fi
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # STEP 4 — openenv validate
-# =============================================================================
+# -----------------------------------------------------------------------------
 log "${BOLD}Step 4/5: Running openenv validate${NC} ..."
 
 if ! command -v openenv &>/dev/null; then
@@ -212,9 +235,9 @@ else
   stop_at "Step 4"
 fi
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # STEP 5 — Python syntax check
-# =============================================================================
+# -----------------------------------------------------------------------------
 log "${BOLD}Step 5/5: Python syntax check on inference.py${NC} ..."
 
 PYTHON_CMD=""
@@ -237,9 +260,9 @@ else
   fi
 fi
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # SUMMARY
-# =============================================================================
+# -----------------------------------------------------------------------------
 printf "\n${BOLD}===============================================${NC}\n"
 if [ $FAIL -eq 0 ]; then
   printf "${GREEN}${BOLD}  All 5/5 checks passed!${NC}\n"
