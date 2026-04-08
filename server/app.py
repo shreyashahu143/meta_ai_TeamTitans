@@ -68,7 +68,7 @@ def reset(task_config: TaskConfig = None):
     else:
         env = EmailTriageEnv()
     observation = env.reset()
-    return observation.dict()
+    return observation.model_dump()
  
  
 @app.post("/step")
@@ -76,13 +76,13 @@ def step(request: StepRequest):
     if request.action not in (0, 1):
         raise HTTPException(status_code=400, detail="Action must be 0 or 1")
     response = env.step(request.action)
-    return response.dict()
+    return response.model_dump()
  
  
 @app.get("/state")
 def get_state():
     state = env.state()
-    return state.dict()
+    return state.model_dump()
  
  
 def main():

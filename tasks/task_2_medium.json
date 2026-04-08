@@ -1,17 +1,38 @@
 {
   "task_id": 2,
-  "name": "VIP Tracking",
+  "name": "VIP Relationship Tracking",
   "difficulty": "medium",
-  "description": "Ignoring VIPs triggers follow-up emails with escalating urgency. Learn to prioritize VIPs even when short on time.",
+  "description": "Ignoring VIPs now triggers dynamic follow-up emails with escalating urgency, injected directly into the live inbox. Time budget is tighter — the agent must skip some Normal and Spam emails to save time for VIPs. Scoring equally weights priority accuracy and VIP handling, penalising follow-ups and damaged VIP relationships.",
   "num_emails": 25,
   "vip_count": 8,
   "normal_count": 12,
   "spam_count": 5,
   "time_budget": 420,
   "episode_length": 25,
+  "avg_minutes_per_email": 16.8,
+  "features": {
+    "action_cost_asymmetry": true,
+    "dynamic_followups": true,
+    "time_pressure": "medium",
+    "sunset_penalty": true,
+    "time_traps": false
+  },
+  "what_agent_must_learn": [
+    "Never ignore VIPs — each ignore triggers a follow-up email with higher priority",
+    "Follow-up emails arrive 1-2 steps later, making the inbox harder to manage",
+    "Must skip Normal/Spam emails to save time for all VIPs",
+    "VIP relationship health directly impacts vip_handling_score",
+    "Each follow-up incurs a -0.05 penalty on the vip_handling_score (max -0.30)"
+  ],
   "scoring": {
     "formula": "0.5 * priority_accuracy + 0.5 * vip_handling_score",
     "priority_accuracy_weight": 0.5,
-    "vip_handling_weight": 0.5
+    "vip_handling_weight": 0.5,
+    "vip_handling_components": {
+      "vip_response_rate": "50% — what fraction of VIP emails were responded to",
+      "avg_vip_health": "50% — average VIP relationship health at episode end",
+      "followup_penalty": "-0.05 per follow-up email in inbox (max -0.30)"
+    },
+    "notes": "Priority accuracy uses reward signal for Normal emails — a positive reward means correct decision, negative means wrong."
   }
 }

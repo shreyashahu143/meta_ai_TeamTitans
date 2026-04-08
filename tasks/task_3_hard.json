@@ -2,17 +2,37 @@
   "task_id": 3,
   "name": "Full Relationship Management",
   "difficulty": "hard",
-  "description": "Balance time budget, relationship health, AND priority accuracy under tight time pressure. Includes time-trap emails (120 min even from VIPs), angry follow-ups, and a sunset penalty for unfinished work.",
+  "description": "The agent cannot finish all 30 emails within 360 minutes — it must decide which to skip. Time-trap emails (up to 180 min) appear even from VIPs, meaning blind VIP-always-respond is punished. Angry follow-ups cascade from repeat VIP ignores. A sunset penalty deducts reward for every high-priority email left unfinished. The agent must balance time efficiency, relationship health, AND priority accuracy simultaneously.",
   "num_emails": 30,
   "vip_count": 8,
   "normal_count": 14,
   "spam_count": 8,
   "time_budget": 360,
   "episode_length": 30,
+  "avg_minutes_per_email": 12,
+  "features": {
+    "action_cost_asymmetry": true,
+    "dynamic_followups": true,
+    "time_pressure": "severe",
+    "sunset_penalty": true,
+    "time_traps": true,
+    "repeat_ignore_penalty": true
+  },
+  "what_agent_must_learn": [
+    "Cannot respond to all emails — must prioritise strategically",
+    "Time-trap emails (120-180 min) from VIPs may not be worth responding to if time is low",
+    "Ignoring a VIP twice triggers a second follow-up with even higher urgency + extra -10 relationship health",
+    "Sunset penalty = sum of (base_priority × relationship_health/100) for all unfinished emails",
+    "Time efficiency compares actual reward to a perfect greedy agent benchmark",
+    "Optimal policy: respond to short high-priority emails, ignore long low-priority ones regardless of sender tier"
+  ],
   "scoring": {
     "formula": "0.3 * time_efficiency + 0.4 * relationship_health + 0.3 * priority_accuracy",
     "time_efficiency_weight": 0.3,
     "relationship_health_weight": 0.4,
-    "priority_accuracy_weight": 0.3
+    "priority_accuracy_weight": 0.3,
+    "time_efficiency_benchmark": "Perfect greedy agent — picks highest priority emails until time runs out",
+    "sunset_penalty_formula": "-sum(base_priority * relationship_health/100) for all remaining emails",
+    "notes": "Relationship health still has the highest weight (0.4) — even under time pressure, destroying VIP relationships is costly. Time efficiency rewards staying within budget while maximising reward."
   }
 }

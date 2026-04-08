@@ -2,16 +2,31 @@
   "task_id": 1,
   "name": "Basic Prioritization",
   "difficulty": "easy",
-  "description": "Learn to respond to high-priority emails and ignore spam within a normal workday.",
+  "description": "Learn to respond to high-priority emails and ignore spam within a normal workday. Time budget is generous — agent can make minor mistakes and still recover. Scoring rewards relationship health (60%) over raw value (40%), teaching the agent that ignoring even one VIP costs more than skipping a spam email saves.",
   "num_emails": 20,
   "vip_count": 5,
   "normal_count": 10,
   "spam_count": 5,
   "time_budget": 480,
   "episode_length": 20,
+  "avg_minutes_per_email": 24,
+  "features": {
+    "action_cost_asymmetry": true,
+    "dynamic_followups": false,
+    "time_pressure": "low",
+    "sunset_penalty": false,
+    "time_traps": false
+  },
+  "what_agent_must_learn": [
+    "Respond to VIP emails — ignoring them costs relationship health",
+    "Ignore Spam — responding wastes time with zero reward",
+    "Short high-priority Normal emails are worth responding to",
+    "Very long low-priority Normal emails may not be worth the time cost"
+  ],
   "scoring": {
     "formula": "0.4 * value_efficiency + 0.6 * relationship_health",
     "value_efficiency_weight": 0.4,
-    "relationship_health_weight": 0.6
+    "relationship_health_weight": 0.6,
+    "notes": "Relationship health is weighted higher to penalise ignoring VIPs. Value efficiency measures whether the agent responded to emails worth responding to."
   }
 }

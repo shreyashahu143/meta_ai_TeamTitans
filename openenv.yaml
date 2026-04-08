@@ -1,3 +1,5 @@
+openenv_version: 1.0.0
+
 name: meta_ai_teamtitans
 description: "Email triage RL environment exposing action cost asymmetry and sender relationship decay as blind spots"
 version: 1.0.0
@@ -48,33 +50,34 @@ observation_space:
       description: "How many emails are left to process"
 
 action_space:
-  type: integer
-  minimum: 0
-  maximum: 1
+  type: discrete
+  n: 2
   description: "0 = ignore email, 1 = respond to email"
 
-reward_range:
-  min: -100
-  max: 100
-  description: "Reward calculated from email value, time cost, and relationship impact"
+reward_range: [-100, 100]
+reward_description: "Reward calculated from email value, time cost, and relationship impact"
 
 tasks:
   - id: task_1_easy
     name: "Basic Prioritization"
     description: "20 emails, full time budget, basic value-maximization scoring"
     difficulty: easy
-    
+    file: tasks/task_1_easy.json
+
   - id: task_2_medium
     name: "VIP Relationship Tracking"
     description: "25 emails with followup chains, tests relationship decay blind spot"
     difficulty: medium
-    
+    file: tasks/task_2_medium.json
+
   - id: task_3_hard
     name: "Full Multi-Objective Optimization"
     description: "30 emails, time pressure, balances efficiency + relationship health + priority accuracy"
     difficulty: hard
+    file: tasks/task_3_hard.json
 
 server:
+  host: 0.0.0.0
   port: 7860
   endpoints:
     - /health
