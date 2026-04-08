@@ -28,7 +28,7 @@ OpenEnv = A Restaurant
   models.py              ← The Menu        (Type-safe contracts for everything)
   inference.py           ← The Customer    (The AI agent making decisions)
   grader.py              ← The Food Critic (Scores how well the AI did)
-  data/email_bank.json   ← The Ingredients (60 pre-written email templates)
+  data/email_bank.json   ← The Ingredients (82 pre-written email templates)
 ```
 
 ### Request Flow
@@ -61,7 +61,7 @@ meta_ai_TeamTitans/
 │   └── app.py             ← FastAPI endpoints: /reset, /step, /state, /health
 │
 ├── data/
-│   └── email_bank.json    ← 60 email templates (18 VIP, 32 Normal, 10 Spam)
+│   └── email_bank.json    ← 82 email templates (20 VIP, 46 Normal, 16 Spam)
 │
 ├── tasks/
 │   ├── task_1_easy.json   ← 20 emails, 480 min budget
@@ -79,7 +79,7 @@ meta_ai_TeamTitans/
 ## 🐍 Setup — Python 3.11 with venv
 
 <<<<<<< HEAD
-> **Standard for this hackathon:** Python **3.12** with `venv`. Do NOT use conda or poetry .
+> **Standard for this hackathon:** Python **3.11** with `venv`. Do NOT use conda or poetry .
 >
 > To check which Python versions you have installed, run:
 > ```powershell
