@@ -110,7 +110,6 @@ python3.11 -m venv venv
 
 # Windows (PowerShell — use py launcher)
 py -3.11 -m venv venv
->>>>>>> kezia
 ```
 
 ### Step 2 — Activate it
@@ -159,7 +158,6 @@ Then open `.env` and paste in your `ANTHROPIC_API_KEY`.
 ### Step 3 — Install dependencies
 
 ```bash
->>>>>>> kezia
 pip install -r requirements.txt
 ```
 
@@ -178,7 +176,6 @@ API_BASE_URL=https://router.huggingface.co/v1
 MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 TASK_ID=1
 ENV_SERVER_URL=http://localhost:7860
->>>>>>> kezia
 ```
 
 ### Step 5 — Verify
@@ -206,7 +203,7 @@ uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 # Terminal 1: Start the server
 source venv/bin/activate          # macOS/Linux
 # venv\Scripts\Activate.ps1      # Windows
->>>>>>> kezia
+
 
 cd server/
 uvicorn app:app --host 0.0.0.0 --port 7860 --reload
@@ -235,7 +232,6 @@ docker build -t email-triage-env .
 # Run the container
 =======
 # Run server
->>>>>>> kezia
 docker run -p 7860:7860 email-triage-env
 
 # In another terminal, run the agent
@@ -431,7 +427,6 @@ chmod +x validate-submission.sh
 
 # Windows (run inside Git Bash, not PowerShell)
 bash validate-submission.sh https://your-team.hf.space
->>>>>>> kezia
 ```
 
 All checks must say `PASSED` before you submit. Run this every time before pushing a final version.
