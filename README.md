@@ -12,7 +12,7 @@ port : 7860
 
 # 📧 Email Triage RL Environment
 
-### 🏆 Team Titans — Meta AI OpenEnv Hackathon 2026
+###  Team Titans — Meta AI OpenEnv Hackathon 2026
 
 [![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-HuggingFace%20Space-blue?style=for-the-badge)](https://huggingface.co/spaces/TeamTitans25/meta_ai_TeamTitans)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
