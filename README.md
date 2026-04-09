@@ -5,14 +5,15 @@ colorFrom: blue
 colorTo: indigo
 sdk: docker
 pinned: false
+port : 7860
 ---
 
 # 📧 Email Triage RL Environment
 
 ### Team Titans — Meta AI OpenEnv Hackathon 2026 Submission
 
-**Live Environment:** https://TeamTitans25-Meta_ai_TeamTitans.hf.space  
-**Space Repository:** https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
+**Live Environment:** https://huggingface.co/spaces/TeamTitans25/meta_ai_TeamTitans 
+**Space Repository:** https://huggingface.co/spaces/TeamTitans25/meta_ai_TeamTitans
 
 ---
 
@@ -184,11 +185,14 @@ docker run -p 7860:7860 --env-file .env email-triage-env
 ```
 
 ### Test the API manually
-```bash
-curl http://localhost:7860/health
-curl -X POST http://localhost:7860/reset
-curl -X POST http://localhost:7860/step -H "Content-Type: application/json" -d '{"action": 1}'
-```
+# Health check (GET)
+curl.exe https://TeamTitans25-meta-ai-teamtitans.hf.space/health
+
+# Reset the environment (POST)
+curl.exe -X POST https://TeamTitans25-meta-ai-teamtitans.hf.space/reset
+
+# Take a step – respond to current email (POST with JSON body)
+curl.exe -X POST https://TeamTitans25-meta-ai-teamtitans.hf.space/step -H "Content-Type: application/json" -d "{\"action\": 1}"
 
 ---
 

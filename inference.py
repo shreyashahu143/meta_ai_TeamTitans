@@ -304,7 +304,7 @@ def run_episode(task_id: int = 1) -> dict:
                 )
                 llm_response = response.choices[0].message.content or "1"
             except Exception as e:
-                error_msg    = str(e)[:120]
+                error_msg   = str(e).replace('\n', ' ')
                 llm_response = "1"
 
             action       = parse_action(llm_response)
@@ -314,7 +314,7 @@ def run_episode(task_id: int = 1) -> dict:
             try:
                 result = client.step_env(action)
             except Exception as e:
-                error_msg = str(e)[:120]
+                error_msg = str(e).replace('\n', ' ')
                 success   = False
                 log_step(
                     step   = step_count + 1,
