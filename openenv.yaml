@@ -3,6 +3,7 @@ openenv_version: 1.0.0
 name: meta_ai_teamtitans
 description: "Email triage RL environment exposing action cost asymmetry and sender relationship decay as blind spots"
 version: 1.0.0
+grader: "grader.grade_episode"
 
 authors:
   - Team Titans
@@ -58,19 +59,19 @@ reward_range: [-100, 100]
 reward_description: "Reward calculated from email value, time cost, and relationship impact"
 
 tasks:
-  - id: task_1_easy
+  - id: 1
     name: "Basic Prioritization"
     description: "20 emails, full time budget, basic value-maximization scoring"
     difficulty: easy
     file: tasks/task_1_easy.json
 
-  - id: task_2_medium
+  - id: 2
     name: "VIP Relationship Tracking"
     description: "25 emails with followup chains, tests relationship decay blind spot"
     difficulty: medium
     file: tasks/task_2_medium.json
 
-  - id: task_3_hard
+  - id: 3
     name: "Full Multi-Objective Optimization"
     description: "30 emails, time pressure, balances efficiency + relationship health + priority accuracy"
     difficulty: hard

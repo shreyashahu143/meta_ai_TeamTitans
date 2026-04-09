@@ -20,8 +20,8 @@
 #
 # Examples:
 #   ./validate-submission.sh
-#   ./validate-submission.sh https://TeamTitans25-Meta_ai_TeamTitans.hf.space
-#   ./validate-submission.sh https://huggingface.co/spaces/TeamTitans25/Meta_ai_TeamTitans
+#   ./validate-submission.sh https://TeamTitans25-meta-ai-teamtitans.hf.space
+#   ./validate-submission.sh https://huggingface.co/spaces/TeamTitans25/meta_ai_TeamTitans
 #
 
 set -uo pipefail
@@ -65,16 +65,29 @@ trap cleanup EXIT
 
 normalise_hf_url() {
   local input="$1"
+  # If it's already a .hf.space URL, just return it (after converting underscores to hyphens in subdomain)
+  if [[ "$input" =~ ^https://([a-zA-Z0-9_-]+)\.hf\.space ]]; then
+    local subdomain="${BASH_REMATCH[1]}"
+    # Replace underscores with hyphens (HF does this automatically)
+    subdomain="${subdomain//_/-}"
+    echo "https://${subdomain}.hf.space"
+    return
+  fi
+  # Convert huggingface.co/spaces/... URL to .hf.space
   if [[ "$input" =~ https://huggingface\.co/spaces/([^/]+)/([^/]+) ]]; then
     local user="${BASH_REMATCH[1]}"
     local repo="${BASH_REMATCH[2]}"
-    echo "https://${user}-${repo}.hf.space"
+    # Convert underscores to hyphens in the repo name for subdomain
+    local subdomain_repo="${repo//_/-}"
+    echo "https://${user}-${subdomain_repo}.hf.space"
   else
+    # Assume it's already a direct .hf.space URL
     echo "$input"
   fi
 }
 
-DEFAULT_SPACE_URL="https://TeamTitans25-Meta_ai_TeamTitans.hf.space"
+# Default Space URL (CORRECT hyphenated subdomain)
+DEFAULT_SPACE_URL="https://TeamTitans25-meta-ai-teamtitans.hf.space"
 
 if [ $# -ge 1 ]; then
   RAW_URL="$1"
