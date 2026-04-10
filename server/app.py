@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..")) # project root
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import json
  
 from environment import EmailTriageEnv
 from models import StepResponse
@@ -63,14 +64,26 @@ class TaskConfig(BaseModel):
 def health_check():
     return {"status": "ok", "version": "1.0.0"}
  
- 
+
+class ResetRequest(BaseModel):
+    task_id: int = 1
+    config: dict = {}
+
 @app.post("/reset")
-def reset(task_config: TaskConfig = None):
+def reset(request: ResetRequest = None):
     global env
-    if task_config and task_config.config:
-        env = EmailTriageEnv(task_config=task_config.config)
+    task_id = request.task_id if request else 1
+    
+    # Load task config from file
+    BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
+    task_config_path = os.path.join(BASE_DIR, "tasks", f"task_{task_id}_{'easy' if task_id==1 else 'medium' if task_id==2 else 'hard'}.json")
+    if os.path.exists(task_config_path):
+        with open(task_config_path) as f:
+            task_config = json.load(f)
     else:
-        env = EmailTriageEnv()
+        task_config = request.config if request and request.config else {}
+    
+    env = EmailTriageEnv(task_config=task_config if task_config else None)
     observation = env.reset()
     return observation.model_dump()
  
