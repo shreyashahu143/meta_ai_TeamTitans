@@ -41,7 +41,7 @@ SERVER_URL = os.getenv("ENV_SERVER_URL", "http://localhost:7860")
 # PUBLIC FUNCTIONS (what inference.py calls)
 # ---------------------------------------------------------------------------
 
-def reset_env(task_config: Optional[dict] = None) -> EmailObservation:
+def reset_env(task_config: Optional[dict] = None, task_id: int = 1) -> EmailObservation:
     """
     Start a new episode.
 
@@ -57,7 +57,7 @@ def reset_env(task_config: Optional[dict] = None) -> EmailObservation:
         obs = reset_env()
         print(f"First email: {obs.subject} from {obs.sender}")
     """
-    payload = {"config": task_config} if task_config else {}
+    payload = {"task_id": task_id, "config": task_config or {}}
     response = _post("/reset", payload)
     return _parse_observation(response)
 

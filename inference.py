@@ -288,7 +288,7 @@ def run_episode(task_id: int = 1) -> dict:
             )
 
         # --- Start episode — pass full config so environment reads feature flags ---
-        obs = client.reset_env(task_config=task_config)
+        obs = client.reset_env(task_config=task_config, task_id=task_id)
 
         # --- Episode loop: one email at a time ---
         while True:
@@ -399,4 +399,5 @@ def run_episode(task_id: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    run_episode(task_id=TASK_ID)
+    for task_id in [1, 2, 3]:
+        run_episode(task_id=task_id)
