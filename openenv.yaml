@@ -60,22 +60,31 @@ reward_description: "Reward calculated from email value, time cost, and relation
 
 tasks:
   - id: 1
+    grader: "grader.grade_episode"
     name: "Basic Prioritization"
     description: "20 emails, full time budget, basic value-maximization scoring"
     difficulty: easy
     file: tasks/task_1_easy.json
+    grader_args:
+      task_id: 1
 
   - id: 2
+    grader: "grader.grade_episode"
     name: "VIP Relationship Tracking"
     description: "25 emails with followup chains, tests relationship decay blind spot"
     difficulty: medium
     file: tasks/task_2_medium.json
+    grader_args:
+      task_id: 1
 
   - id: 3
+    grader: "grader.grade_episode"
     name: "Full Multi-Objective Optimization"
     description: "30 emails, time pressure, balances efficiency + relationship health + priority accuracy"
     difficulty: hard
     file: tasks/task_3_hard.json
+    grader_args:
+      task_id: 1
 
 server:
   host: 0.0.0.0
