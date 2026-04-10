@@ -75,7 +75,7 @@ tasks:
     difficulty: medium
     file: tasks/task_2_medium.json
     grader_args:
-      task_id: 1
+      task_id: 2
 
   - id: 3
     grader: "grader.grade_episode"
@@ -84,7 +84,7 @@ tasks:
     difficulty: hard
     file: tasks/task_3_hard.json
     grader_args:
-      task_id: 1
+      task_id: 3
 
 server:
   host: 0.0.0.0
